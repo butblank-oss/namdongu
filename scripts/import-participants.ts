@@ -38,6 +38,8 @@ export function toDbRow(p: ParticipantRow, nowIso: string): Record<string, unkno
   return {
     id: p.id,
     name_masked: p.name_masked,
+    // 실명 열이 있는 추출본일 때만 실명을 넣는다 (없으면 기존 실명을 지우지 않도록 키 자체를 뺀다)
+    ...(p.full_name !== undefined ? { full_name: p.full_name } : {}),
     phone_last4: p.phone_last4,
     birth_year: p.birth_year,
     age_group: p.age_group,
@@ -146,6 +148,10 @@ export function printSummary(s: RunSummary): void {
   L(`By cohort:          ${JSON.stringify(s.byCohort)}`)
   L(`Null birth_year:    ${s.nullBirthYear}`)
   L(`Null phone_last4:   ${s.nullPhone}`)
+  L(s.nameColumn
+    ? `Full name column:   "${s.nameColumn}" · filled ${s.fullNames} · not matching masked name ${s.fullNameMismatch}`
+    : 'Full name column:   (none — existing full names in DB are kept)')
+  if (s.fullNameMismatch) L('!!!!!!!! WARNING: some full names do not match name_masked — check the column !!!!!!!!')
   L(`Expected 2026-09-14: ${JSON.stringify(EXPECTED_20260914)}`)
   if (s.warnings.length) {
     L('!!!!!!!! WARNING: result differs from expected by more than 2% !!!!!!!!')

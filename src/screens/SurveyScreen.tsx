@@ -202,7 +202,7 @@ function useParticipantLabel(pid: string | null): string | null {
   const [label, setLabel] = useState<string | null>(null)
   useEffect(() => {
     if (!pid) return
-    void db.participants.get(pid).then((p) => { if (p) setLabel(`${p.name_masked} (${p.phone_last4 ?? '----'})`) })
+    void db.participants.get(pid).then((p) => { if (p) setLabel(`${p.full_name || p.name_masked} (${p.phone_last4 ?? '----'})`) })
   }, [db, pid])
   return label
 }

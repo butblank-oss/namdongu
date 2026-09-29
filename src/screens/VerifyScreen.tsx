@@ -98,7 +98,8 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
 
       <div className="rounded-2xl border-2 border-slate-300 bg-white p-8">
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          <span className="text-4xl font-extrabold">{p.name_masked}</span>
+          <span className="text-4xl font-extrabold" data-testid="verify-name">{p.full_name || p.name_masked}</span>
+          {p.full_name && <span className="text-xl text-slate-500">({p.name_masked})</span>}
           <span className="text-2xl">{p.birth_year ? `${p.birth_year}년생` : '생년 미상'}</span>
           <span className="text-2xl text-slate-700">{p.age_group === '?' ? '' : `${p.age_group}대 · `}{p.sex === 'F' ? '여성' : p.sex === 'M' ? '남성' : '성별 미상'}</span>
           {p.cohort !== '3' && <Badge tone="red">{COHORT_LABEL[p.cohort]}</Badge>}
@@ -112,7 +113,7 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
         {cameByPhone ? (
           <div className="text-center">
             <p className="text-2xl font-bold text-emerald-800" data-testid="verify-status">✓ 전화번호 뒷자리 {p.phone_last4} 일치</p>
-            <p className="mt-3 text-3xl font-extrabold">“{p.name_masked[0]}○○ 님 맞으세요? {p.birth_year ? `${p.birth_year}년생이시고요?` : ''}”</p>
+            <p className="mt-3 text-3xl font-extrabold">“{p.full_name || `${p.name_masked[0]}○○`} 님 맞으세요? {p.birth_year ? `${p.birth_year}년생이시고요?` : ''}”</p>
             <p className="mt-2 text-lg text-slate-600">성함과 생년이 맞으면 확인 완료를 누르세요.</p>
           </div>
         ) : (
