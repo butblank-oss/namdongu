@@ -1,6 +1,6 @@
-import { useContext, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { SignOutContext, useEngine, useParticipants, useResponses } from '../app/context'
+import { useEngine, useParticipants, useResponses } from '../app/context'
 import { FIRST_GAME_KEY, FIRST_GAME_OPTION } from '../lib/defaultSchema'
 import { buildResponsesCsv, downloadText, stamp } from '../lib/exportCsv'
 import type { Track } from '../lib/types'
@@ -61,7 +61,6 @@ export function Progress() {
 export function TopBar() {
   const engine = useEngine()
   const navigate = useNavigate()
-  const signOut = useContext(SignOutContext)
   const active = engine.staff.filter((s) => s.active)
 
   async function exportCsv() {
@@ -90,7 +89,6 @@ export function TopBar() {
           <Button onClick={() => navigate('/print')}>게임 카드 인쇄</Button>
           <Button onClick={() => void exportCsv()}>응답 내보내기</Button>
           {engine.isAdmin && <Button onClick={() => navigate('/admin')}>설문지 편집</Button>}
-          {signOut && <Button variant="ghost" onClick={() => void signOut()}>로그아웃</Button>}
         </div>
       </div>
     </header>

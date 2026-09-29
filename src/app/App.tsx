@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { EngineContext, SignOutContext, useEngine } from './context'
+import { EngineContext, useEngine } from './context'
 import { TopBar } from '../components/TopBar'
 import { Button, Screen } from '../components/ui'
 import type { Engine } from '../lib/engine'
@@ -49,8 +49,8 @@ function Shell() {
   )
 }
 
-export function App({ engine, memory, initialPath, start = true, onSignOut }: {
-  engine: Engine; memory?: boolean; initialPath?: string; start?: boolean; onSignOut?: () => Promise<void>
+export function App({ engine, memory, initialPath, start = true }: {
+  engine: Engine; memory?: boolean; initialPath?: string; start?: boolean
 }) {
   const [ready, setReady] = useState(!start)
   useEffect(() => {
@@ -63,11 +63,9 @@ export function App({ engine, memory, initialPath, start = true, onSignOut }: {
   const body = ready ? <Shell /> : <Screen><p className="text-xl">불러오는 중…</p></Screen>
   return (
     <EngineContext.Provider value={engine}>
-      <SignOutContext.Provider value={onSignOut ?? null}>
-        {memory
-          ? <MemoryRouter initialEntries={[initialPath ?? '/']}>{body}</MemoryRouter>
-          : <HashRouter>{body}</HashRouter>}
-      </SignOutContext.Provider>
+      {memory
+        ? <MemoryRouter initialEntries={[initialPath ?? '/']}>{body}</MemoryRouter>
+        : <HashRouter>{body}</HashRouter>}
     </EngineContext.Provider>
   )
 }

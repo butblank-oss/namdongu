@@ -2,13 +2,16 @@
 
 2026-10-30(금) 인천 남동구 치매안심센터 팝업 행사에서 **원메딕스 임직원**이 노트북으로 어르신을 응대하며 설문을 입력하는 웹 앱입니다. 어르신이 직접 쓰는 앱이 아닙니다.
 
-- Vite + React + TypeScript + Tailwind, Supabase(Postgres/Auth/Realtime), Dexie(IndexedDB)
+- Vite + React + TypeScript + Tailwind, Supabase(Postgres/Realtime), Dexie(IndexedDB)
 - 배포: GitHub Actions → GitHub Pages (`https://butblank-oss.github.io/namdongu/`, HashRouter)
 
 ## 개인정보 원칙
 
 - 참여자 명단은 **Supabase DB에만** 있습니다. 저장소·빌드 산출물에 명단 파일을 넣지 않습니다 (`*.csv`, `roster*.json`은 `.gitignore` 처리, `tests/dist` 테스트가 빌드 산출물을 검사).
-- 모든 테이블에 RLS가 걸려 있어 로그인하지 않으면 아무것도 조회되지 않습니다. anon key는 번들에 들어가지만 RLS가 막습니다.
+- **로그인 없음 (2026-09-29 운영 결정).** 페이지를 열면 담당자가 자기 이름을 눌러 바로 씁니다.
+  - ⚠ 그래서 페이지 주소를 아는 사람은 누구나 명단(마스킹 이름·전화 뒷 4자리·생년)을 조회하고 응답을 쓸 수 있습니다. 주소를 외부에 공유하지 마세요. 검색엔진 노출은 `noindex`로 막아 두었습니다.
+  - 그래도 남아 있는 보호: 명단 수정·삭제 불가, 응답 완전 삭제 불가(삭제 표시만), 열람 기록은 쓰기만 가능(조회·수정·삭제는 Supabase 대시보드에서만), 행사 잠금, 응답 있는 문항 key 보호.
+  - admin 여부는 고른 이름의 `staff.role`로 화면에서만 판단합니다.
 - 명단에는 마스킹 이름, 전화 뒷 4자리, 생년만 둡니다. 실명은 직원이 응답에 입력한 경우에만 `responses.real_name`에 들어갑니다(선택 입력).
 - 명단 열람(view), 본인 확인(verify), 내보내기(export), 삭제(delete)는 `access_log`에 자동으로 기록됩니다. `reason` 컬럼은 비워 두었습니다(보건소 협의 후 필수화 가능).
 
@@ -17,13 +20,12 @@
 ### 1. Supabase
 
 1. 프로젝트 생성 후 SQL Editor에서 `supabase/migrations/20260929000000_init.sql` 실행 (또는 `supabase db push`).
-2. Authentication → Providers에서 Email 사용. **Sign-ups 비활성화**를 권장합니다(직원 계정만 초대).
-3. 직원 계정을 초대(Authentication → Users → Invite)한 뒤, 관리자 계정을 staff 행에 연결합니다.
+   이어서 `supabase/migrations/20260929010000_public_access.sql`도 실행합니다(로그인 없이 쓰기).
+2. 설문지 편집 권한을 줄 담당자를 admin으로 지정합니다.
    ```sql
-   update staff set auth_user_id = '<auth.users.id>', role = 'admin' where name = '강하연';
+   update staff set role = 'admin' where name = '강하연';
    ```
-   operator는 연결하지 않아도 됩니다(로그인 후 본인 이름을 고르면 이 노트북에 저장됩니다).
-4. Database → Replication에서 `responses`, `survey_schema`, `staff`가 `supabase_realtime`에 포함됐는지 확인합니다(마이그레이션이 자동 추가).
+3. Database → Replication에서 `responses`, `survey_schema`, `staff`가 `supabase_realtime`에 포함됐는지 확인합니다(마이그레이션이 자동 추가).
 
 ### 2. GitHub
 
@@ -51,10 +53,10 @@ npm run import:participants -- ~/Downloads/S3_user_info.csv --snapshot 2026-09-1
 ## 행사 당일 체크리스트
 
 1. 아침에 어드민 → 설문지 편집 → **행사 잠금**. 잠그면 admin도 설문 구조를 바꿀 수 없습니다(해제는 두 번 확인).
-2. 노트북마다 로그인 → 본인 이름 선택 → 상단이 `동기화됨 · 대기 0건`인지 확인. 명단이 이 노트북에 캐시되어야 오프라인 검색이 됩니다.
+2. 노트북마다 페이지 열기 → 본인 이름 선택 → 상단이 `동기화됨 · 대기 0건`인지 확인. 명단이 이 노트북에 캐시되어야 오프라인 검색이 됩니다.
 3. 와이파이가 끊겨도 계속 입력하세요. 상단에 `오프라인 · 대기 N건`이 보이고, 연결되면 자동으로 올라갑니다.
 4. 5분마다 이 노트북 IndexedDB에 전체 스냅샷이 백업됩니다. 수시로 상단 **응답 내보내기**로 CSV를 받아 둘 수 있습니다.
-5. 로그아웃하면 이 노트북의 명단 캐시를 지웁니다. 올라가지 않은 응답이 있으면 경고합니다.
+5. 무료 요금제는 일주일간 접속이 없으면 멈춥니다. 행사 2~3일 전과 당일 아침에 Supabase 대시보드에 한 번 들어가 두세요.
 
 ## 사용 흐름
 

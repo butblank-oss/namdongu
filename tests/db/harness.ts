@@ -1,8 +1,11 @@
 import { PGlite } from '@electric-sql/pglite'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const MIGRATION = resolve(__dirname, '../../supabase/migrations/20260929000000_init.sql')
+const MIGRATIONS_DIR = resolve(__dirname, '../../supabase/migrations')
+/** 모든 마이그레이션을 파일명 순서대로 이어 붙인다 */
+const migrationSql = () => readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()
+  .map((f) => readFileSync(resolve(MIGRATIONS_DIR, f), 'utf8')).join('\n')
 
 const SUPABASE_ENV = `
 create role anon nologin;
@@ -23,7 +26,7 @@ export type Db = PGlite
 export async function bootDb(): Promise<Db> {
   const db = new PGlite()
   await db.exec(SUPABASE_ENV)
-  let sql = readFileSync(MIGRATION, 'utf8')
+  let sql = migrationSql()
   try {
     await db.exec(sql)
   } catch (e) {

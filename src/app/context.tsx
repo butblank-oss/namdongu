@@ -4,8 +4,6 @@ import type { Engine } from '../lib/engine'
 import type { LocalResponse, Participant } from '../lib/types'
 
 export const EngineContext = createContext<Engine | null>(null)
-/** 로그아웃 (데모·테스트에서는 없음) */
-export const SignOutContext = createContext<(() => Promise<void>) | null>(null)
 
 /** engine 상태(동기화, 스키마, 담당자 등)가 바뀌면 다시 그린다 */
 export function useEngine(): Engine {

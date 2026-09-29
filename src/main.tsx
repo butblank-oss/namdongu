@@ -2,22 +2,14 @@ import { StrictMode, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './app/App'
-import { AuthGate } from './app/Auth'
 import { Button, Screen } from './components/ui'
 import { Engine } from './lib/engine'
 import { SupabaseRemote, supabaseConfigured } from './lib/supabaseRemote'
 
+// 로그인 없음: 페이지를 열면 담당자가 자기 이름을 골라 바로 쓴다 (2026-09-29 운영 결정)
 function Live() {
-  return (
-    <AuthGate>
-      {(session, signOut) => <LiveApp key={session.user.id} signOut={signOut} />}
-    </AuthGate>
-  )
-}
-
-function LiveApp({ signOut }: { signOut: () => Promise<void> }) {
   const engine = useMemo(() => new Engine(new SupabaseRemote()), [])
-  return <App engine={engine} onSignOut={signOut} />
+  return <App engine={engine} />
 }
 
 function Demo() {

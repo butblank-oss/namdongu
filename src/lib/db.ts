@@ -49,13 +49,3 @@ export async function cachedSchema(): Promise<SurveySchema | undefined> {
 export async function cachedStaff(): Promise<Staff[]> {
   return (await db.getKV<Staff[]>(KV_STAFF)) ?? []
 }
-
-/** 로그아웃 시 이 기기의 개인정보 캐시를 지운다. 미동기화 응답이 있으면 지우지 않는다 */
-export async function clearLocalData(): Promise<{ cleared: boolean; pending: number }> {
-  const pending = await db.responses.where('_dirty').equals(1).count()
-  if (pending > 0) return { cleared: false, pending }
-  await db.transaction('rw', [db.participants, db.responses, db.accessQueue, db.kv, db.snapshots], async () => {
-    await Promise.all([db.participants.clear(), db.responses.clear(), db.kv.clear(), db.snapshots.clear()])
-  })
-  return { cleared: true, pending: 0 }
-}

@@ -62,7 +62,6 @@ export class Engine {
   status: SyncStatus = { online: true, pending: 0, syncing: false, lastSyncAt: null, lastError: null }
   schema: SurveySchema = { version: 0, payload: DEFAULT_PAYLOAD, locked: false, updated_by: null, updated_at: '' }
   staff: Staff[] = []
-  myStaff: Staff | null = null
   presence: PresenceInfo[] = []
   me: string | null = safeLocal()?.getItem(ME_KEY) ?? null
   readonly device: string
@@ -104,7 +103,11 @@ export class Engine {
     this.emit()
   }
 
-  get isAdmin(): boolean { return this.myStaff?.role === 'admin' && this.myStaff.active }
+  /** 로그인 없이 쓰므로 admin 여부는 고른 이름의 staff.role 로만 판단한다 (화면 제어용) */
+  get isAdmin(): boolean {
+    const s = this.staff.find((x) => x.name === this.me)
+    return s?.role === 'admin' && s.active
+  }
 
   // ── 시작/종료 ───────────────────────────────────
   private gen = 0
@@ -172,20 +175,18 @@ export class Engine {
 
   async fullPull() {
     await this.guarded(async () => {
-      const [participants, schema, myStaff] = await Promise.all([
+      const [participants, schema] = await Promise.all([
         this.remote.fetchParticipants(),
         this.remote.fetchSchema(),
-        this.remote.fetchMyStaff(),
       ])
       await this.db.transaction('rw', this.db.participants, async () => {
         await this.db.participants.clear()
         await this.db.participants.bulkPut(participants)
       })
-      this.myStaff = myStaff
       if (schema) await this.applySchema(schema)
-      else if (myStaff?.role === 'admin') {
+      else {
         // 최초 1회: 내장 기본 설문을 서버에 올린다
-        const created = await this.remote.saveSchema(DEFAULT_PAYLOAD, { updatedBy: this.me ?? myStaff.name, create: true })
+        const created = await this.remote.saveSchema(DEFAULT_PAYLOAD, { updatedBy: this.me ?? '', create: true })
         await this.applySchema(created)
       }
     })
