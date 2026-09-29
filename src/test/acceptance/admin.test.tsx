@@ -101,7 +101,7 @@ describe('key 보호', () => {
     const { engine } = await withAnswer()
     await renderApp(engine, '/admin')
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: /^트랙 A/ }))
+    await user.click(await screen.findByRole('button', { name: /^활동 중/ }))
     const keyInput = () => screen.getAllByLabelText('key').find((i) => (i as HTMLInputElement).value === 'a_freq') as HTMLInputElement
     expect(keyInput()).toBeTruthy()
 

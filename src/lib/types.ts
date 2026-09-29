@@ -1,4 +1,11 @@
 export type Track = 'A' | 'B' | 'C'
+/** 화면에는 A/B/C 대신 이 말로 보인다 (트랙은 명단의 활동 기록으로 자동 판정) */
+export const TRACK_LABEL: Record<Track, string> = { A: '활동 중', B: '쉬는 중', C: '거의 미사용' }
+export const TRACK_DESC: Record<Track, string> = {
+  A: '최근 한 달 안에 사용하신 분',
+  B: '예전에 꾸준히 하셨는데 한 달 넘게 쉬고 계신 분',
+  C: '앱을 거의 사용하지 못하신 분',
+}
 export type Cohort = '3' | '2' | '1' | '?'
 export const COHORT_LABEL: Record<Cohort, string> = { '3': '3기', '2': '2기', '1': '1기', '?': '기수 미상' }
 export type Verified = 'ok' | 'failed' | 'skipped'
@@ -115,9 +122,9 @@ export interface Question {
 export type SectionId = 'intake' | 'A' | 'B' | 'C' | 'closing'
 export const SECTION_LABEL: Record<SectionId, string> = {
   intake: '접수',
-  A: '트랙 A',
-  B: '트랙 B',
-  C: '트랙 C',
+  A: '활동 중 (A)',
+  B: '쉬는 중 (B)',
+  C: '거의 미사용 (C)',
   closing: '마무리',
 }
 

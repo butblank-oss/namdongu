@@ -8,7 +8,7 @@ function resp(over: Partial<ResponseRow> = {}): ResponseRow {
   return {
     id: 'r1', participant_id: FIXTURE[0].id, manual_info: null, track: 'A', verified: 'ok',
     verified_by: '김다희', verified_at: '2026-09-30T00:00:00.000Z', real_name: null, consent: '동의', helpers: [],
-    answers: { consent: '동의', a_freq: '거의 매일', a_difficulty: ['글씨가 작음', '소리가 작음'], a_fav: '초성 퀴즈' },
+    answers: { consent: '동의', a_freq: '거의 매일', a_pain: ['글씨·버튼이 작음', '소리가 작음'], a_pain__etc: '', memo: '메모 내용' },
     status: 'done', result: '설문 완료', entered_by: '김도영', device_id: 'd', schema_version: 1,
     started_at: '2026-09-30T00:00:00.000Z', completed_at: '2026-09-30T00:10:00.000Z', updated_at: '2026-09-30T00:10:00.000Z',
     client_rev: 3, deleted_at: null, ...over,
@@ -28,7 +28,7 @@ describe('CSV 내보내기', () => {
     const header = Object.keys(row)
     for (const q of allQuestions) expect(header).toContain(`${q.label} [${q.key}]`)
     expect(row['요즘 맬리브레인을 얼마나 자주 하세요? [a_freq]']).toBe('거의 매일')
-    expect(row['가장 좋아하시는 게임은 무엇인가요? [a_fav]']).toBe('초성 퀴즈')
+    expect(row['메모 [memo]']).toBe('메모 내용')
   })
 
   test('#23 본인확인 상태 라벨: failed/skipped', () => {
@@ -48,16 +48,16 @@ describe('CSV 내보내기', () => {
   test('#24 복수 선택은 MULTI_SEPARATOR 로 한 칸에 합쳐진다', () => {
     const csv = buildResponsesCsv([resp()], pmap, DEFAULT_PAYLOAD)
     const [row] = parseCsv(csv)
-    expect(row['쓰시면서 불편한 점이 있으세요? [a_difficulty]']).toBe(['글씨가 작음', '소리가 작음'].join(MULTI_SEPARATOR))
+    expect(row['불편한 점을 모두 골라 주세요 [a_pain]']).toBe(['글씨·버튼이 작음', '소리가 작음'].join(MULTI_SEPARATOR))
   })
 
   test('#24 쉼표·따옴표·줄바꿈이 든 칸은 따옴표로 감싸 올바르게 복원된다', () => {
     const nasty = '안녕, "세상"\n둘째 줄'
-    const csv = buildResponsesCsv([resp({ answers: { a_fav: nasty } })], pmap, DEFAULT_PAYLOAD)
+    const csv = buildResponsesCsv([resp({ answers: { memo: nasty } })], pmap, DEFAULT_PAYLOAD)
     expect(csv).toContain('"안녕, ""세상""\n둘째 줄"')
     const rows = parseCsv(csv)
     expect(rows).toHaveLength(1)
-    expect(rows[0]['가장 좋아하시는 게임은 무엇인가요? [a_fav]']).toBe(nasty)
+    expect(rows[0]['메모 [memo]']).toBe(nasty)
   })
 
   test('#25 CSV 는 BOM 으로 시작한다', () => {

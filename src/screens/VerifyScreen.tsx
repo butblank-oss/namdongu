@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useDB, useEngine, useResponseIndex } from '../app/context'
 import { Badge, Button, Modal, Screen, TRACK_TONE } from '../components/ui'
 import { nowIso } from '../lib/engine'
-import { COHORT_LABEL, type Participant, type Track, type Verified } from '../lib/types'
+import { COHORT_LABEL, TRACK_DESC, TRACK_LABEL, type Participant, type Verified } from '../lib/types'
 
 export function VerifyScreen() {
   const { pid = '' } = useParams()
@@ -26,13 +26,21 @@ export function VerifyScreen() {
 
 function VerifyCard({ participant: p, onBack, engine }: { participant: Participant; onBack: () => void; engine: ReturnType<typeof useEngine> }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const index = useResponseIndex()
   const existing = index.get(p.id)
-  const [realName, setRealName] = useState('')
-  const [track, setTrack] = useState<Track>(existing?.track ?? p.track)
+  // 뒷 4자리로 검색해 들어왔으면 어르신이 이미 번호를 말씀하신 것 → 성함만 확인
+  const searchedDigits = (location.state as { q?: string } | null)?.q?.trim() ?? ''
+  const cameByPhone = /^\d{4}$/.test(searchedDigits) && searchedDigits === p.phone_last4
+  const [typed, setTyped] = useState(cameByPhone ? searchedDigits : '')
   const [ackConflict, setAckConflict] = useState(false)
   const [busy, setBusy] = useState(false)
   const okRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const complete4 = /^\d{4}$/.test(typed)
+  const matched = complete4 && typed === p.phone_last4
+  const mismatched = complete4 && !matched
 
   // 열람 기록 + 다른 기기에 "이 분을 열었음" 알림
   useEffect(() => {
@@ -40,9 +48,12 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
     engine.openParticipant(p.id)
     // 서버에 더 최신 응답이 있는지 확인 (오프라인이면 조용히 실패)
     engine.remote.fetchResponseByParticipant(p.id).then((r) => { if (r) void engine.mergeRemote(r) }).catch(() => {})
-    okRef.current?.focus()
+    if (cameByPhone) okRef.current?.focus()
+    else inputRef.current?.focus()
     return () => engine.openParticipant(null)
-  }, [engine, p.id])
+  }, [engine, p.id, cameByPhone])
+
+  useEffect(() => { if (matched) okRef.current?.focus() }, [matched])
 
   const others = engine.othersOpening(p.id)
   const takenBy = existing && existing.status === 'in_progress' && existing.device_id !== engine.device ? existing.entered_by : null
@@ -52,21 +63,16 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
   async function proceed(verified: Verified) {
     if (busy) return
     setBusy(true)
-    const patch = {
-      verified, verified_by: engine.me, verified_at: nowIso(), track,
-      ...(realName.trim() ? { real_name: realName.trim() } : {}),
-    }
+    const patch = { verified, verified_by: engine.me, verified_at: nowIso() }
     let id: string
     // 목록 인덱스가 늦게 읽혀도 중복 응답을 만들지 않도록 DB에서 다시 확인
-    const existing = await engine.findResponseFor(p.id)
-    if (existing) {
-      await engine.takeOver(existing.id, {
-        ...patch,
-        ...(realName.trim() ? { answers: { ...existing.answers, real_name: realName.trim() } } : {}),
-      })
-      id = existing.id
+    const found = await engine.findResponseFor(p.id)
+    if (found) {
+      await engine.takeOver(found.id, patch)
+      id = found.id
     } else {
-      const r = await engine.createResponse({ participant: p, track, verified, realName })
+      // 대상 구분(트랙)은 명단의 활동 기록으로 자동 판정된 값을 그대로 쓴다
+      const r = await engine.createResponse({ participant: p, track: p.track, verified })
       id = r.id
     }
     engine.passedGate.add(id)
@@ -90,38 +96,48 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
         </Modal>
       )}
 
-      <div className="rounded-2xl border-2 border-slate-300 bg-white p-8 text-center">
-        <p className="text-3xl font-extrabold leading-snug">“전화번호 뒷 네 자리가 어떻게 되세요?”</p>
-        <p className="mt-6 font-mono text-8xl font-black tracking-[0.2em]" data-testid="verify-phone">{p.phone_last4 ?? '----'}</p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-2xl">
-          <span>생년 <b>{p.birth_year ?? '?'}</b></span>
-          <span>{p.age_group === '?' ? '연령 ?' : `${p.age_group}대`} · {p.sex === 'F' ? '여성' : p.sex === 'M' ? '남성' : '성별 ?'}</span>
-          <span className="font-bold">{p.name_masked}</span>
-          <Badge>{COHORT_LABEL[p.cohort]}</Badge>
+      <div className="rounded-2xl border-2 border-slate-300 bg-white p-8">
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          <span className="text-4xl font-extrabold">{p.name_masked}</span>
+          <span className="text-2xl">{p.birth_year ? `${p.birth_year}년생` : '생년 미상'}</span>
+          <span className="text-2xl text-slate-700">{p.age_group === '?' ? '' : `${p.age_group}대 · `}{p.sex === 'F' ? '여성' : p.sex === 'M' ? '남성' : '성별 미상'}</span>
+          {p.cohort !== '3' && <Badge tone="red">{COHORT_LABEL[p.cohort]}</Badge>}
         </div>
+        <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-lg" data-testid="target-desc">
+          <Badge tone={TRACK_TONE[p.track]}>{TRACK_LABEL[p.track]}</Badge> {TRACK_DESC[p.track]}
+        </p>
 
-        <div className="mt-6 flex items-center justify-center gap-2" role="group" aria-label="트랙">
-          <span className="text-lg text-slate-600">트랙</span>
-          {(['A', 'B', 'C'] as const).map((t) => (
-            <button key={t} type="button" aria-pressed={track === t} onClick={() => setTrack(t)}
-              className={`min-h-11 min-w-14 rounded-lg border-2 text-xl font-bold ${track === t ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white'}`}>
-              {t}
-            </button>
-          ))}
-          {track !== p.track && <Badge tone={TRACK_TONE[p.track]}>명단 기준 {p.track}</Badge>}
-        </div>
+        <hr className="my-6 border-slate-200" />
 
-        <label className="mx-auto mt-6 block max-w-md text-left">
-          <span className="text-base text-slate-600">전체 성함 (선택)</span>
-          <input value={realName} onChange={(e) => setRealName(e.target.value)} aria-label="전체 성함"
-            className="mt-1 min-h-12 w-full rounded-lg border-2 border-slate-400 px-3 text-xl" autoComplete="off" />
-        </label>
+        {cameByPhone ? (
+          <div className="text-center">
+            <p className="text-2xl font-bold text-emerald-800" data-testid="verify-status">✓ 전화번호 뒷자리 {p.phone_last4} 일치</p>
+            <p className="mt-3 text-3xl font-extrabold">“{p.name_masked[0]}○○ 님 맞으세요? {p.birth_year ? `${p.birth_year}년생이시고요?` : ''}”</p>
+            <p className="mt-2 text-lg text-slate-600">성함과 생년이 맞으면 확인 완료를 누르세요.</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <p className="text-3xl font-extrabold">“전화번호 뒷 네 자리가 어떻게 되세요?”</p>
+            <p className="mt-2 text-lg text-slate-600">어르신이 말씀하신 번호를 입력하면 명단과 자동으로 맞춰 봅니다.</p>
+            <input ref={inputRef} aria-label="어르신이 말한 뒷 4자리" value={typed} inputMode="numeric" maxLength={4} autoComplete="off"
+              onChange={(e) => setTyped(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onKeyDown={(e) => { if (e.key === 'Enter' && matched) void proceed('ok') }}
+              className={`mx-auto mt-4 block w-72 rounded-xl border-4 px-4 py-3 text-center font-mono text-6xl font-black tracking-[0.3em] ${
+                matched ? 'border-emerald-600 bg-emerald-50' : mismatched ? 'border-red-600 bg-red-50' : 'border-slate-400'}`} />
+            <p className="mt-3 min-h-8 text-2xl font-bold" data-testid="verify-status" role="status">
+              {matched && <span className="text-emerald-800">✓ 명단과 일치합니다</span>}
+              {mismatched && <span className="text-red-700">✗ 명단의 번호와 다릅니다. 다시 여쭤 보세요</span>}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-3">
-        <Button ref={okRef} size="xl" variant="success" disabled={busy} onClick={() => void proceed('ok')}>본인 확인 완료</Button>
+        <Button ref={okRef} size="xl" variant="success" disabled={busy || !(cameByPhone || matched)} onClick={() => void proceed('ok')}>
+          본인 확인 완료
+        </Button>
         <Button size="xl" onClick={onBack}>다른 분입니다</Button>
-        <Button size="xl" variant="secondary" disabled={busy} onClick={() => void proceed('skipped')}>확인 못 했지만 진행</Button>
+        <Button size="xl" variant="secondary" disabled={busy} onClick={() => void proceed(mismatched ? 'failed' : 'skipped')}>확인 못 했지만 진행</Button>
       </div>
     </Screen>
   )

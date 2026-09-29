@@ -73,8 +73,8 @@ export function ManualAddScreen() {
           options={[{ v: 'F', label: '여성' }, { v: 'M', label: '남성' }, { v: '?', label: '모름' }] as const} />
         <Choice label="명단에 없는 이유" value={reason} onChange={setReason} invalid={tried && errs.reason}
           options={MANUAL_REASONS.map((v) => ({ v, label: v }))} />
-        <Choice label="트랙" value={track} onChange={setTrack} invalid={tried && errs.track}
-          options={[{ v: 'A', label: 'A · 최근 활동' }, { v: 'B', label: 'B · 쉬는 중' }, { v: 'C', label: 'C · 거의 미사용' }] as const} />
+        <Choice label="맬리브레인을 요즘 쓰세요?" value={track} onChange={setTrack} invalid={tried && errs.track}
+          options={[{ v: 'A', label: '최근 한 달 안에 씀' }, { v: 'B', label: '예전엔 했는데 쉬는 중' }, { v: 'C', label: '거의 안 씀' }] as const} />
       </div>
       {tried && !valid && <p className="mt-3 text-lg font-bold text-red-700" role="alert">붉게 표시된 항목을 채워 주세요</p>}
       <div className="mt-4 flex justify-end">

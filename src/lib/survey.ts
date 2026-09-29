@@ -1,6 +1,7 @@
-import type { Answers, AnswerValue, Question, SurveyPayload, Track } from './types'
+import { KEYS_WITHOUT_CONSENT } from './defaultSchema'
+import { TRACK_LABEL, type Answers, type AnswerValue, type Question, type SurveyPayload, type Track } from './types'
 
-export interface Step {
+export interface Section {
   id: string
   title: string
   questions: Question[]
@@ -9,19 +10,18 @@ export interface Step {
 const withoutDividers = (list: Question[]) => list.filter((q) => q.type !== 'divider')
 
 /**
- * 화면은 두 장: 1) 접수(동의)  2) 트랙별 문항 + 마무리를 한 화면에 쭉.
- * 구분선(divider)은 화면을 나누지 않고 가로줄로만 보인다.
+ * 설문은 한 화면. 섹션은 ① 동의 ② 대상별 문항 ③ 마무리.
+ * 개인정보 미동의면 대상별 문항과 리워드 등은 빼고 응대 결과·메모만 남긴다.
  */
-export function buildSteps(payload: SurveyPayload, track: Track): Step[] {
-  const closingHeader: Question = { key: '__closing', type: 'divider', label: '마무리' }
-  return [
-    { id: 'intake', title: '접수', questions: withoutDividers(payload.sections.intake) },
-    {
-      id: `${track}-0`,
-      title: `트랙 ${track} · 마무리`,
-      questions: [...payload.sections[track], closingHeader, ...payload.sections.closing],
-    },
-  ].filter((st) => st.questions.some((q) => q.type !== 'divider'))
+export function buildSections(payload: SurveyPayload, track: Track, answers: Answers): Section[] {
+  const denied = answers.consent === '미동의'
+  const keep = (q: Question) => !denied || KEYS_WITHOUT_CONSENT.includes(q.key)
+  const sections: Section[] = [
+    { id: 'intake', title: '동의', questions: withoutDividers(payload.sections.intake).filter(keep) },
+    { id: 'track', title: TRACK_LABEL[track], questions: denied ? [] : payload.sections[track] },
+    { id: 'closing', title: '마무리', questions: withoutDividers(payload.sections.closing).filter(keep) },
+  ]
+  return sections.filter((sec) => sec.questions.some((q) => q.type !== 'divider'))
 }
 
 export function isEmpty(v: AnswerValue | undefined): boolean {
@@ -39,8 +39,8 @@ export function isVisible(q: Question, answers: Answers): boolean {
 }
 
 /** 필수인데 비어 있는 (보이는) 문항 key 목록 */
-export function missingRequired(step: Step, answers: Answers): string[] {
-  return step.questions
+export function missingRequired(questions: Question[], answers: Answers): string[] {
+  return questions
     .filter((q) => q.type !== 'divider' && q.required && isVisible(q, answers) && isEmpty(answers[q.key]))
     .map((q) => q.key)
 }

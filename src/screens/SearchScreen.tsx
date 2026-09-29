@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useParticipants, useResponseIndex } from '../app/context'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
 import { searchParticipants } from '../lib/search'
-import { COHORT_LABEL, type LocalResponse, type Participant, type Track } from '../lib/types'
+import { COHORT_LABEL, TRACK_LABEL, type LocalResponse, type Participant } from '../lib/types'
 
 const LIMIT = 50
 type StatusFilter = 'todo' | 'progress' | 'done'
@@ -47,7 +47,6 @@ export function SearchScreen() {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState(() => { try { return sessionStorage.getItem(SEARCH_KEY) ?? '' } catch { return '' } })
-  const [tracks, setTracks] = useState<Track[]>([])
   const [statuses, setStatuses] = useState<StatusFilter[]>([])
 
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
@@ -56,12 +55,12 @@ export function SearchScreen() {
   const results = useMemo(() => {
     const list = (participants ?? []).filter((p) => p.active !== false || index.has(p.id))
     return searchParticipants(list, q).filter(({ participant: p }) =>
-      (!tracks.length || tracks.includes(p.track))
-      && (!statuses.length || statuses.includes(statusOf(index.get(p.id)))))
-  }, [participants, q, tracks, statuses, index])
+      (!statuses.length || statuses.includes(statusOf(index.get(p.id)))))
+  }, [participants, q, statuses, index])
 
   const shown = results.slice(0, LIMIT)
-  const open = (p: Participant) => navigate(`/p/${p.id}`)
+  // 검색어를 함께 넘긴다: 뒷 4자리로 찾았으면 본인 확인에서 번호 대조가 끝난 것
+  const open = (p: Participant) => navigate(`/p/${p.id}`, { state: { q } })
 
   return (
     <Screen>
@@ -92,7 +91,6 @@ export function SearchScreen() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-4">
-        <Toggle label="트랙" value={tracks} onChange={setTracks} options={[{ v: 'A', label: 'A' }, { v: 'B', label: 'B' }, { v: 'C', label: 'C' }]} />
         <Toggle label="상태" value={statuses} onChange={setStatuses}
           options={[{ v: 'todo', label: '미착수' }, { v: 'progress', label: '진행중' }, { v: 'done', label: '완료' }]} />
       </div>
@@ -120,7 +118,7 @@ export function SearchScreen() {
                 <span className="w-24 text-2xl font-bold">{p.name_masked}</span>
                 <span className="w-28 text-lg text-slate-700">{p.birth_year ?? '생년 ?'}</span>
                 <span className="w-24 text-lg text-slate-700">{p.age_group === '?' ? '연령 ?' : `${p.age_group}대`} · {p.sex === 'F' ? '여' : p.sex === 'M' ? '남' : '?'}</span>
-                <Badge tone={TRACK_TONE[p.track]}>트랙 {p.track}</Badge>
+                <Badge tone={TRACK_TONE[p.track]}>{TRACK_LABEL[p.track]}</Badge>
                 {p.cohort !== '3' && <Badge tone="red">{COHORT_LABEL[p.cohort]}</Badge>}
                 <span className="ml-auto"><StatusBadge r={r} /></span>
               </button>
