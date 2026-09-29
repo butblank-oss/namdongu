@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.env
+.env.*
+!.env.example
+# 원본 명단/추출본은 절대 커밋하지 않는다
+*.csv
+!tests/fixtures/*.csv
+roster*.json
+backups/
