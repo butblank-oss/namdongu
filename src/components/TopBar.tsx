@@ -1,13 +1,12 @@
-import { useMemo } from 'react'
+import { useContext, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useEngine, useParticipants, useResponses } from '../app/context'
+import { SignOutContext, useEngine, useParticipants, useResponses } from '../app/context'
 import { FIRST_GAME_KEY, FIRST_GAME_OPTION } from '../lib/defaultSchema'
 import { buildResponsesCsv, downloadText, stamp } from '../lib/exportCsv'
-import { db } from '../lib/db'
 import type { Track } from '../lib/types'
 import { Button } from './ui'
 
-export function NetworkStatus() {
+export function NetworkStatus({ testId = 'net-status' }: { testId?: string }) {
   const engine = useEngine()
   const { online, pending, syncing } = engine.status
   let text: string
@@ -23,7 +22,7 @@ export function NetworkStatus() {
     cls = 'bg-emerald-700 text-white'
   }
   return (
-    <button type="button" data-testid="net-status" onClick={() => void engine.syncNow()} title="눌러서 지금 동기화"
+    <button type="button" data-testid={testId} onClick={() => void engine.syncNow()} title="눌러서 지금 동기화"
       className={`min-h-11 rounded-lg px-3 text-base font-bold ${cls}`} aria-live="polite">
       {text}
     </button>
@@ -62,10 +61,11 @@ export function Progress() {
 export function TopBar() {
   const engine = useEngine()
   const navigate = useNavigate()
+  const signOut = useContext(SignOutContext)
   const active = engine.staff.filter((s) => s.active)
 
   async function exportCsv() {
-    const [responses, participants] = await Promise.all([db.responses.toArray(), db.participants.toArray()])
+    const [responses, participants] = await Promise.all([engine.db.responses.toArray(), engine.db.participants.toArray()])
     const csv = buildResponsesCsv(responses, new Map(participants.map((p) => [p.id, p])), engine.schema.payload)
     downloadText(`응답_${stamp()}.csv`, csv)
     await engine.logAccess('export', null)
@@ -90,6 +90,7 @@ export function TopBar() {
           <Button onClick={() => navigate('/print')}>게임 카드 인쇄</Button>
           <Button onClick={() => void exportCsv()}>응답 내보내기</Button>
           {engine.isAdmin && <Button onClick={() => navigate('/admin')}>설문지 편집</Button>}
+          {signOut && <Button variant="ghost" onClick={() => void signOut()}>로그아웃</Button>}
         </div>
       </div>
     </header>

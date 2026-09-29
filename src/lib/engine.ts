@@ -1,4 +1,6 @@
-import { db, KV_PULL_CURSOR, KV_SCHEMA, KV_STAFF } from './db'
+import { db as defaultDb, KV_PULL_CURSOR, KV_SCHEMA, KV_STAFF, type AppDB } from './db'
+
+const KV_ALIASES = 'aliases'
 import { DEFAULT_PAYLOAD } from './defaultSchema'
 import { RemoteError, toServerRow, type PresenceInfo, type Remote } from './remote'
 import type {
@@ -63,7 +65,8 @@ export class Engine {
   myStaff: Staff | null = null
   presence: PresenceInfo[] = []
   me: string | null = safeLocal()?.getItem(ME_KEY) ?? null
-  readonly device = deviceId()
+  readonly device: string
+  readonly db: AppDB
   /** 이 탭에서 본인 확인 관문을 통과한 응답 id. 통과 전에는 문항을 보여 주지 않는다 (새로고침에도 유지) */
   readonly passedGate = new GateSet()
 
@@ -73,9 +76,20 @@ export class Engine {
   private backupTimer: ReturnType<typeof setInterval> | null = null
   private flushing: Promise<void> | null = null
   private onOnline = () => { this.setStatus({ online: true }); void this.syncNow() }
-  private onOffline = () => this.setStatus({ online: false })
+  /** offline 이벤트마다 증가. 그 전에 시작된 요청의 성공으로 온라인 판정을 되돌리지 않는다 */
+  private netGen = 0
+  private onOffline = () => { this.netGen++; this.setStatus({ online: false }) }
+  private markOnline(startGen: number) {
+    if (!this.status.online && startGen === this.netGen) this.setStatus({ online: true })
+  }
 
-  constructor(public remote: Remote) {}
+  constructor(
+    public remote: Remote,
+    private startOpts: { intervalMs?: number; backupMs?: number; deviceId?: string; db?: AppDB } = {},
+  ) {
+    this.device = startOpts.deviceId ?? deviceId()
+    this.db = startOpts.db ?? defaultDb
+  }
 
   // ── 구독 (React useSyncExternalStore) ─────────────
   subscribe = (l: Listener) => { this.listeners.add(l); return () => { this.listeners.delete(l) } }
@@ -94,12 +108,21 @@ export class Engine {
 
   // ── 시작/종료 ───────────────────────────────────
   private gen = 0
+  /** 오프라인 중복 응답이 서버 레코드로 합쳐졌을 때: 옛 로컬 id → 서버 id */
+  private aliases = new Map<string, string>()
 
-  async start(opts: { intervalMs?: number; backupMs?: number } = {}) {
+  resolveId(id: string): string {
+    let cur = id
+    for (let i = 0; i < 5 && this.aliases.has(cur); i++) cur = this.aliases.get(cur)!
+    return cur
+  }
+
+  async start(opts: { intervalMs?: number; backupMs?: number } = this.startOpts) {
     const gen = ++this.gen
-    const cachedSchema = await db.getKV<SurveySchema>(KV_SCHEMA)
+    const cachedSchema = await this.db.getKV<SurveySchema>(KV_SCHEMA)
     if (cachedSchema) this.schema = cachedSchema
-    this.staff = (await db.getKV<Staff[]>(KV_STAFF)) ?? []
+    this.staff = (await this.db.getKV<Staff[]>(KV_STAFF)) ?? []
+    this.aliases = new Map(Object.entries((await this.db.getKV<Record<string, string>>(KV_ALIASES)) ?? {}))
     await this.refreshPending()
     if (typeof navigator !== 'undefined') this.status.online = navigator.onLine
     if (typeof window !== 'undefined') {
@@ -135,9 +158,10 @@ export class Engine {
 
   // ── 서버 → 로컬 ─────────────────────────────────
   private async guarded<T>(fn: () => Promise<T>): Promise<T | undefined> {
+    const startGen = this.netGen
     try {
       const v = await fn()
-      if (!this.status.online) this.setStatus({ online: true })
+      this.markOnline(startGen)
       return v
     } catch (e) {
       if (e instanceof RemoteError && e.code === 'NETWORK') this.setStatus({ online: false })
@@ -153,9 +177,9 @@ export class Engine {
         this.remote.fetchSchema(),
         this.remote.fetchMyStaff(),
       ])
-      await db.transaction('rw', db.participants, async () => {
-        await db.participants.clear()
-        await db.participants.bulkPut(participants)
+      await this.db.transaction('rw', this.db.participants, async () => {
+        await this.db.participants.clear()
+        await this.db.participants.bulkPut(participants)
       })
       this.myStaff = myStaff
       if (schema) await this.applySchema(schema)
@@ -172,7 +196,7 @@ export class Engine {
   async pullStaff() {
     await this.guarded(async () => {
       this.staff = await this.remote.fetchStaff()
-      await db.setKV(KV_STAFF, this.staff)
+      await this.db.setKV(KV_STAFF, this.staff)
       this.emit()
     })
   }
@@ -180,17 +204,17 @@ export class Engine {
   async applySchema(s: SurveySchema) {
     if (s.version < this.schema.version) return
     this.schema = s
-    await db.setKV(KV_SCHEMA, s)
+    await this.db.setKV(KV_SCHEMA, s)
     this.emit()
   }
 
   /** 서버에서 온 응답을 로컬에 반영. 미동기화 로컬 변경이 있으면 무시한다 */
   async mergeRemote(remote: ResponseRow): Promise<'applied' | 'ignored'> {
-    const result = await db.transaction('rw', db.responses, async () => {
-      const local = await db.responses.get(remote.id)
+    const result = await this.db.transaction('rw', this.db.responses, async () => {
+      const local = await this.db.responses.get(remote.id)
       if (local?._dirty) return 'ignored' as const
       if (local && remote.client_rev < local.client_rev) return 'ignored' as const
-      await db.responses.put({ ...remote, _dirty: 0, _server_rev: remote.client_rev })
+      await this.db.responses.put({ ...remote, _dirty: 0, _server_rev: remote.client_rev })
       return 'applied' as const
     })
     if (result === 'applied') this.emit()
@@ -199,20 +223,20 @@ export class Engine {
 
   async pullResponses() {
     await this.guarded(async () => {
-      const cursor = (await db.getKV<string>(KV_PULL_CURSOR)) ?? null
+      const cursor = (await this.db.getKV<string>(KV_PULL_CURSOR)) ?? null
       const rows = await this.remote.fetchResponsesSince(cursor)
       let max = cursor
       for (const r of rows) {
         await this.mergeRemote(r)
         if (!max || r.updated_at > max) max = r.updated_at
       }
-      if (max && max !== cursor) await db.setKV(KV_PULL_CURSOR, max)
+      if (max && max !== cursor) await this.db.setKV(KV_PULL_CURSOR, max)
     })
   }
 
   // ── 로컬 → 서버 ─────────────────────────────────
   async refreshPending() {
-    const pending = await db.responses.where('_dirty').equals(1).count()
+    const pending = await this.db.responses.where('_dirty').equals(1).count()
     if (pending !== this.status.pending) this.setStatus({ pending })
   }
 
@@ -236,14 +260,14 @@ export class Engine {
   }
 
   private async pushAccessLogs() {
-    const entries = await db.accessQueue.toArray()
+    const entries = await this.db.accessQueue.toArray()
     if (!entries.length) return
     const ok = await this.guarded(async () => { await this.remote.insertAccessLogs(entries); return true })
-    if (ok) await db.accessQueue.bulkDelete(entries.map((e) => e.id))
+    if (ok) await this.db.accessQueue.bulkDelete(entries.map((e) => e.id))
   }
 
   private async pushResponses() {
-    const dirty = await db.responses.where('_dirty').equals(1).toArray()
+    const dirty = await this.db.responses.where('_dirty').equals(1).toArray()
     for (const r of dirty) {
       const ok = await this.pushOne(r)
       if (ok === 'network') break
@@ -251,14 +275,15 @@ export class Engine {
   }
 
   private async pushOne(r: LocalResponse): Promise<'ok' | 'network' | 'error'> {
+    const startGen = this.netGen
     try {
       const server = await this.remote.upsertResponse(toServerRow(r))
-      if (!this.status.online) this.setStatus({ online: true })
-      await db.transaction('rw', db.responses, async () => {
-        const cur = await db.responses.get(r.id)
+      this.markOnline(startGen)
+      await this.db.transaction('rw', this.db.responses, async () => {
+        const cur = await this.db.responses.get(r.id)
         // 올리는 사이에 새로 입력된 내용이 있으면 dirty 유지
         if (cur && cur.client_rev === r.client_rev) {
-          await db.responses.put({ ...cur, updated_at: server.updated_at, _dirty: 0, _server_rev: server.client_rev })
+          await this.db.responses.put({ ...cur, updated_at: server.updated_at, _dirty: 0, _server_rev: server.client_rev })
         }
       })
       return 'ok'
@@ -283,18 +308,18 @@ export class Engine {
   }
 
   private async bumpRev(id: string, rev: number) {
-    await db.transaction('rw', db.responses, async () => {
-      const cur = await db.responses.get(id)
-      if (cur) await db.responses.put({ ...cur, client_rev: Math.max(cur.client_rev, rev) })
+    await this.db.transaction('rw', this.db.responses, async () => {
+      const cur = await this.db.responses.get(id)
+      if (cur) await this.db.responses.put({ ...cur, client_rev: Math.max(cur.client_rev, rev) })
     })
   }
 
   private async adoptServerId(localId: string, server: ResponseRow) {
-    await db.transaction('rw', db.responses, async () => {
-      const cur = await db.responses.get(localId)
+    await this.db.transaction('rw', this.db.responses, this.db.kv, async () => {
+      const cur = await this.db.responses.get(localId)
       if (!cur) return
-      await db.responses.delete(localId)
-      await db.responses.put({
+      await this.db.responses.delete(localId)
+      await this.db.responses.put({
         ...cur,
         id: server.id,
         answers: { ...server.answers, ...cur.answers },
@@ -302,7 +327,11 @@ export class Engine {
         client_rev: Math.max(cur.client_rev, server.client_rev + 1),
         _dirty: 1,
       })
+      this.aliases.set(localId, server.id)
+      await this.db.setKV(KV_ALIASES, Object.fromEntries(this.aliases))
     })
+    if (this.passedGate.has(localId)) this.passedGate.add(server.id)
+    this.emit()
   }
 
   // ── 응답 쓰기 API ───────────────────────────────
@@ -343,24 +372,30 @@ export class Engine {
       _dirty: 1,
       _server_rev: 0,
     }
-    await db.responses.put(r)
+    await this.db.responses.put(r)
     this.emit()
     this.schedulePush()
     return r
   }
 
   /** 기존 응답을 이어받는다 (다른 직원이 진행 중이던 건 포함) */
+  /** 이 어르신의 (삭제되지 않은) 응답. 화면 목록이 아직 안 읽혔어도 DB에서 직접 찾는다 */
+  async findResponseFor(participantId: string): Promise<LocalResponse | undefined> {
+    return this.db.responses.where('participant_id').equals(participantId).filter((r) => !r.deleted_at).first()
+  }
+
   async takeOver(id: string, patch: Partial<ResponseRow> = {}): Promise<LocalResponse | undefined> {
     return this.updateResponse(id, (r) => ({ ...r, entered_by: this.me, device_id: this.device, ...patch }))
   }
 
-  async updateResponse(id: string, fn: (r: LocalResponse) => LocalResponse): Promise<LocalResponse | undefined> {
-    const saved = await db.transaction('rw', db.responses, async () => {
-      const cur = await db.responses.get(id)
+  async updateResponse(rawId: string, fn: (r: LocalResponse) => LocalResponse): Promise<LocalResponse | undefined> {
+    const id = this.resolveId(rawId)
+    const saved = await this.db.transaction('rw', this.db.responses, async () => {
+      const cur = await this.db.responses.get(id)
       if (!cur) return undefined
       const next = fn(cur)
       const out: LocalResponse = { ...next, updated_at: nowIso(), client_rev: cur.client_rev + 1, _dirty: 1 }
-      await db.responses.put(out)
+      await this.db.responses.put(out)
       return out
     })
     this.emit()
@@ -369,7 +404,7 @@ export class Engine {
   }
 
   async logAccess(action: AccessAction, participantId: string | null, responseId: string | null = null) {
-    await db.accessQueue.put({
+    await this.db.accessQueue.put({
       id: crypto.randomUUID(),
       participant_id: participantId,
       response_id: responseId,
@@ -382,16 +417,20 @@ export class Engine {
   }
 
   // ── 동시 작업 감지 ──────────────────────────────
+  private myOpen: PresenceInfo | null = null
+
   openParticipant(participantId: string | null) {
-    this.remote.trackPresence(participantId
+    this.myOpen = participantId
       ? { device_id: this.device, staff_name: this.me ?? '', participant_id: participantId, opened_at: nowIso() }
-      : null)
+      : null
+    this.remote.trackPresence(this.myOpen)
   }
 
-  /** 나보다 먼저 이 어르신을 열어 둔 다른 기기 */
-  othersOpening(participantId: string, myOpenedAt?: string): PresenceInfo[] {
+  /** 나보다 먼저(또는 동시에) 이 어르신을 열어 둔 다른 기기 */
+  othersOpening(participantId: string): PresenceInfo[] {
+    const mine = this.myOpen?.participant_id === participantId ? this.myOpen.opened_at : null
     return this.presence.filter((p) => p.participant_id === participantId && p.device_id !== this.device
-      && (!myOpenedAt || p.opened_at <= myOpenedAt))
+      && (!mine || p.opened_at <= mine))
   }
 
   // ── 설문지 ──────────────────────────────────────
@@ -405,19 +444,19 @@ export class Engine {
   async setLocked(locked: boolean): Promise<SurveySchema> {
     const s = await this.remote.setSchemaLocked(locked, this.me ?? '')
     this.schema = s
-    await db.setKV(KV_SCHEMA, s)
+    await this.db.setKV(KV_SCHEMA, s)
     this.emit()
     return s
   }
 
   // ── 백업 ────────────────────────────────────────
   async backupSnapshot() {
-    const responses = (await db.responses.toArray()).map(toServerRow)
-    await db.snapshots.add({ at: nowIso(), responses })
-    const count = await db.snapshots.count()
+    const responses = (await this.db.responses.toArray()).map(toServerRow)
+    await this.db.snapshots.add({ at: nowIso(), responses })
+    const count = await this.db.snapshots.count()
     if (count > 24) {
-      const old = await db.snapshots.orderBy('id').limit(count - 24).primaryKeys()
-      await db.snapshots.bulkDelete(old)
+      const old = await this.db.snapshots.orderBy('id').limit(count - 24).primaryKeys()
+      await this.db.snapshots.bulkDelete(old)
     }
   }
 }

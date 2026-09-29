@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { useEngine } from '../app/context'
+import { useDB, useEngine } from '../app/context'
 import { QuestionField } from '../components/QuestionField'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
-import { db } from '../lib/db'
 import { RESULT_STATUS } from '../lib/defaultSchema'
 import { nowIso } from '../lib/engine'
 import { buildSteps, isVisible, missingRequired } from '../lib/survey'
@@ -26,14 +25,16 @@ function applyAnswers(r: LocalResponse, answers: Answers): LocalResponse {
 
 export function SurveyScreen() {
   const { rid = '' } = useParams()
+  const db = useDB()
+  const engine = useEngine()
   const [initial, setInitial] = useState<LocalResponse | null | undefined>(undefined)
 
   // 한 번만 읽는다. 이후 서버/다른 기기 변경이 들어와도 입력 중인 화면을 덮어쓰지 않는다
   useEffect(() => {
     let alive = true
-    void db.responses.get(rid).then((r) => { if (alive) setInitial(r ?? null) })
+    void db.responses.get(engine.resolveId(rid)).then((r) => { if (alive) setInitial(r ?? null) })
     return () => { alive = false }
-  }, [rid])
+  }, [db, engine, rid])
 
   if (initial === undefined) return <Screen><p className="text-xl">불러오는 중…</p></Screen>
   if (initial === null) return <Screen><p className="text-xl">응답을 찾을 수 없습니다.</p></Screen>
@@ -119,7 +120,7 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
       completed_at: nowIso(),
     }))
     try { sessionStorage.removeItem(stepKey) } catch { /* 무시 */ }
-    navigate(`/r/${initial.id}/done`)
+    navigate(`/r/${engine.resolveId(initial.id)}/done`)
   }, [validate, engine, initial.id, navigate, stepKey])
 
   const leave = useCallback(async () => {
@@ -181,11 +182,12 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
 }
 
 function useParticipantLabel(pid: string | null): string | null {
+  const db = useDB()
   const [label, setLabel] = useState<string | null>(null)
   useEffect(() => {
     if (!pid) return
     void db.participants.get(pid).then((p) => { if (p) setLabel(`${p.name_masked} (${p.phone_last4 ?? '----'})`) })
-  }, [pid])
+  }, [db, pid])
   return label
 }
 
@@ -194,11 +196,11 @@ export function GuardedSurvey() {
   const { rid = '' } = useParams()
   const engine = useEngine()
   const [target, setTarget] = useState<string | null | undefined>(undefined)
-  const passed = engine.passedGate.has(rid)
+  const passed = engine.passedGate.has(rid) || engine.passedGate.has(engine.resolveId(rid))
   useEffect(() => {
     if (passed) return
-    void db.responses.get(rid).then((r) => setTarget(r?.participant_id ? `/p/${r.participant_id}` : r ? null : '/'))
-  }, [rid, passed])
+    void engine.db.responses.get(engine.resolveId(rid)).then((r) => setTarget(r?.participant_id ? `/p/${r.participant_id}` : r ? null : '/'))
+  }, [engine, rid, passed])
   if (passed) return <SurveyScreen />
   if (target === undefined) return <Screen><p className="text-xl">불러오는 중…</p></Screen>
   if (target) return <Navigate to={target} replace />

@@ -10,14 +10,14 @@ import { SupabaseRemote, supabaseConfigured } from './lib/supabaseRemote'
 function Live() {
   return (
     <AuthGate>
-      {(session) => <LiveApp key={session.user.id} />}
+      {(session, signOut) => <LiveApp key={session.user.id} signOut={signOut} />}
     </AuthGate>
   )
 }
 
-function LiveApp() {
+function LiveApp({ signOut }: { signOut: () => Promise<void> }) {
   const engine = useMemo(() => new Engine(new SupabaseRemote()), [])
-  return <App engine={engine} />
+  return <App engine={engine} onSignOut={signOut} />
 }
 
 function Demo() {

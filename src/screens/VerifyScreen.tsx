@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEngine, useResponseIndex } from '../app/context'
+import { useDB, useEngine, useResponseIndex } from '../app/context'
 import { Badge, Button, Modal, Screen, TRACK_TONE } from '../components/ui'
-import { db } from '../lib/db'
 import { nowIso } from '../lib/engine'
 import type { Participant, Track, Verified } from '../lib/types'
 
@@ -11,7 +10,8 @@ export function VerifyScreen() {
   const { pid = '' } = useParams()
   const engine = useEngine()
   const navigate = useNavigate()
-  const participant = useLiveQuery(() => db.participants.get(pid), [pid])
+  const db = useDB()
+  const participant = useLiveQuery(() => db.participants.get(pid), [db, pid])
   if (participant === undefined) return <Screen><p className="text-xl">불러오는 중…</p></Screen>
   return <VerifyCard key={pid} participant={participant} onBack={() => navigate('/')} engine={engine} />
 }
@@ -25,7 +25,6 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
   const [ackConflict, setAckConflict] = useState(false)
   const [busy, setBusy] = useState(false)
   const okRef = useRef<HTMLButtonElement>(null)
-  const openedAt = useMemo(() => nowIso(), [])
 
   // 열람 기록 + 다른 기기에 "이 분을 열었음" 알림
   useEffect(() => {
@@ -37,7 +36,7 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
     return () => engine.openParticipant(null)
   }, [engine, p.id])
 
-  const others = engine.othersOpening(p.id, openedAt)
+  const others = engine.othersOpening(p.id)
   const takenBy = existing && existing.status === 'in_progress' && existing.device_id !== engine.device ? existing.entered_by : null
   const alreadyDone = existing && existing.status !== 'in_progress'
   const conflict = !ackConflict && (others.length > 0 || takenBy || alreadyDone)
@@ -50,6 +49,8 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
       ...(realName.trim() ? { real_name: realName.trim() } : {}),
     }
     let id: string
+    // 목록 인덱스가 늦게 읽혀도 중복 응답을 만들지 않도록 DB에서 다시 확인
+    const existing = await engine.findResponseFor(p.id)
     if (existing) {
       await engine.takeOver(existing.id, {
         ...patch,

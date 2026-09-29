@@ -101,7 +101,7 @@ export function supabaseAdapter(url: string, key: string): ImportClient {
     async selectIds() {
       const ids: string[] = []
       for (let from = 0; ; from += 1000) {
-        const { data, error } = await sb.from('participants').select('id').range(from, from + 999)
+        const { data, error } = await sb.from('participants').select('id').order('id').range(from, from + 999)
         if (error) throw new Error(`select participants: ${error.message}`)
         ids.push(...(data ?? []).map((r: { id: string }) => r.id))
         if (!data || data.length < 1000) break
@@ -113,11 +113,14 @@ export function supabaseAdapter(url: string, key: string): ImportClient {
       if (error) throw new Error(`upsert participants: ${error.message}`)
     },
     async deactivate(ids) {
-      const { error } = await sb
-        .from('participants')
-        .update({ active: false, updated_at: new Date().toISOString() })
-        .in('id', ids)
-      if (error) throw new Error(`deactivate participants: ${error.message}`)
+      // URL 길이 제한 때문에 나눠서 보낸다
+      for (let i = 0; i < ids.length; i += 200) {
+        const { error } = await sb
+          .from('participants')
+          .update({ active: false, updated_at: new Date().toISOString() })
+          .in('id', ids.slice(i, i + 200))
+        if (error) throw new Error(`deactivate participants: ${error.message}`)
+      }
     },
   }
 }
