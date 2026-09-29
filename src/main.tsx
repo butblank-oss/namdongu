@@ -17,9 +17,9 @@ function Demo() {
   if (engine) return <App engine={engine} />
   return (
     <Screen>
-      <h1 className="text-2xl font-bold">Supabase 설정이 없습니다</h1>
-      <p className="mt-2">VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 를 .env.local 에 넣으세요.</p>
-      <Button className="mt-4" variant="primary" onClick={async () => {
+      <h1 className="text-[26px] font-bold text-grey-900">Supabase 설정이 없습니다</h1>
+      <p className="mt-2 text-grey-700">VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 를 .env.local 에 넣으세요.</p>
+      <Button className="mt-6" variant="primary" size="lg" onClick={async () => {
         const { FakeServer, FakeRemote, makeFakeParticipants, makeFakeStaff } = await import('./lib/fakeRemote')
         const server = new FakeServer()
         server.participants = makeFakeParticipants(1523)
@@ -31,7 +31,7 @@ function Demo() {
 }
 
 function Misconfigured() {
-  return <Screen><p className="text-xl">서비스 설정 오류: 관리자에게 문의하세요.</p></Screen>
+  return <Screen><p className="text-[19px] text-grey-700">서비스 설정 오류: 관리자에게 문의하세요.</p></Screen>
 }
 
 // 와이파이가 끊긴 상태에서 새로고침해도 앱이 뜨도록 (배포 빌드에서만)

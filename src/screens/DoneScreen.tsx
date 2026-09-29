@@ -21,14 +21,18 @@ export function DoneScreen() {
   const label = { done: '응대 완료', refused: '응대 거부로 종료', revisit: '재방문 예정으로 종료', in_progress: '진행중' }
 
   return (
-    <Screen className="text-center">
-      <div className="mt-10 rounded-2xl border-2 border-emerald-600 bg-white p-10">
-        <p className="text-5xl">✓</p>
-        <h1 className="mt-4 text-4xl font-extrabold" data-testid="done-title">{r ? label[r.status] : '저장됨'}</h1>
-        <p className="mt-4 text-xl text-slate-700">이 기기에 먼저 저장되었고, 온라인이면 자동으로 서버에 올라갑니다.</p>
-        <div className="mt-4 flex justify-center"><NetworkStatus testId="net-status-done" /></div>
-        <Button ref={btn} size="xl" variant="primary" className="mt-8 w-full max-w-xl" onClick={next}>다음 분 찾기</Button>
-        <Button className="mt-4" onClick={() => navigate(`/r/${rid}`)}>방금 응답 다시 보기</Button>
+    <Screen className="max-w-xl text-center">
+      <div className="mt-16 flex flex-col items-center">
+        <div className="grid h-20 w-20 place-items-center rounded-full bg-blue-50" aria-hidden>
+          <svg viewBox="0 0 24 24" className="h-10 w-10 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        </div>
+        <h1 className="mt-6 text-[28px] font-bold text-grey-900" data-testid="done-title">{r ? label[r.status] : '저장됨'}</h1>
+        <p className="mt-2 text-[16px] leading-relaxed text-grey-500">이 기기에 먼저 저장되었고,<br />온라인이면 자동으로 서버에 올라갑니다.</p>
+        <div className="mt-4"><NetworkStatus testId="net-status-done" /></div>
+        <Button ref={btn} size="xl" variant="primary" className="mt-10 w-full" onClick={next}>다음 분 찾기</Button>
+        <Button variant="ghost" className="mt-3" onClick={() => navigate(`/r/${rid}`)}>방금 응답 다시 보기</Button>
       </div>
     </Screen>
   )

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { EngineContext, useEngine } from './context'
 import { TopBar } from '../components/TopBar'
-import { Button, Screen } from '../components/ui'
+import { PageTitle, Screen } from '../components/ui'
 import type { Engine } from '../lib/engine'
 import { AdminScreen } from '../screens/AdminScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
@@ -19,12 +19,12 @@ function StaffPicker() {
   const active = engine.staff.filter((s) => s.active)
   return (
     <Screen>
-      <h1 className="text-3xl font-extrabold">본인 이름을 골라 주세요</h1>
-      <p className="mt-2 text-lg text-slate-600">이 노트북에 저장되며, 상단에서 언제든 바꿀 수 있습니다.</p>
-      {active.length === 0 && <p className="mt-6 text-lg">담당자 명단을 불러오는 중… (오프라인이면 온라인 연결 후 다시 시도하세요)</p>}
-      <div className="mt-6 grid grid-cols-4 gap-3">
+      <PageTitle sub="이 노트북에 저장되며, 상단에서 언제든 바꿀 수 있습니다.">본인 이름을 골라 주세요</PageTitle>
+      {active.length === 0 && <p className="mt-6 text-[17px] text-grey-500">담당자 명단을 불러오는 중… (오프라인이면 온라인 연결 후 다시 시도하세요)</p>}
+      <div className="mt-6 grid grid-cols-4 gap-4">
         {active.map((s) => (
-          <Button key={s.id} size="lg" onClick={() => engine.setMe(s.name)}>{s.name}</Button>
+          <button key={s.id} type="button" onClick={() => engine.setMe(s.name)}
+            className="min-h-16 rounded-2xl bg-white text-lg font-semibold text-grey-900 shadow-card transition-colors hover:bg-blue-50 hover:text-blue-600">{s.name}</button>
         ))}
       </div>
     </Screen>
@@ -64,7 +64,7 @@ export function App({ engine, memory, initialPath, start = true }: {
     return () => { alive = false; engine.stop() }
   }, [engine, start])
 
-  const body = ready ? <Shell /> : <Screen><p className="text-xl">불러오는 중…</p></Screen>
+  const body = ready ? <Shell /> : <Screen><p className="text-[19px] text-grey-500">불러오는 중…</p></Screen>
   return (
     <EngineContext.Provider value={engine}>
       {memory

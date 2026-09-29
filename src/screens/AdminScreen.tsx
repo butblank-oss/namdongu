@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useEngine, useResponses } from '../app/context'
-import { Badge, Button, Modal, Screen } from '../components/ui'
+import { Badge, Button, Card, Modal, PageTitle, Screen, inputCls } from '../components/ui'
 import { RESERVED_KEYS } from '../lib/defaultSchema'
 import { RemoteError } from '../lib/remote'
 import {
@@ -58,15 +58,16 @@ function AdminInner() {
   const locked = engine.schema.locked
   return (
     <Screen className="max-w-6xl">
-      <div className="mb-4 flex items-center gap-3">
-        <Button onClick={() => navigate('/')}>← 돌아가기</Button>
-        <h1 className="text-2xl font-extrabold">설문지 편집</h1>
+      <div className="mb-4"><Button variant="ghost" onClick={() => navigate('/')}>← 돌아가기</Button></div>
+      <PageTitle right={<>
         <Badge>v{engine.schema.version}</Badge>
         {locked ? <Badge tone="red">행사 잠금 중 · 수정 불가</Badge> : <Badge tone="green">편집 가능</Badge>}
-      </div>
-      <div className="mb-4 flex gap-2" role="tablist">
+      </>}>설문지 편집</PageTitle>
+      <div className="mb-6 inline-flex rounded-xl bg-grey-100 p-1" role="tablist">
         {([['questions', '설문 문항'], ['guides', '트랙별 안내문'], ['staff', '담당자 명단'], ['lock', '행사 잠금']] as const).map(([k, l]) => (
-          <Button key={k} role="tab" aria-selected={tab === k} variant={tab === k ? 'primary' : 'secondary'} onClick={() => setTab(k)}>{l}</Button>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+            className={`min-h-10 rounded-[10px] px-4 text-[15px] font-semibold transition-all ${
+              tab === k ? 'bg-white text-grey-900 shadow-[0_1px_3px_rgba(0,29,58,0.12)]' : 'text-grey-500 hover:text-grey-700'}`}>{l}</button>
         ))}
       </div>
       {tab === 'questions' && <SchemaEditor mode="questions" />}
@@ -185,84 +186,84 @@ function SchemaEditor({ mode }: { mode: 'questions' | 'guides' }) {
   return (
     <div>
       {stale && (
-        <p className="mb-3 rounded-lg bg-amber-100 p-3 font-semibold">
+        <p className="mb-3 rounded-2xl bg-orange-50 p-4 font-semibold text-orange-600">
           다른 기기에서 설문지가 v{engine.schema.version} 으로 바뀌었습니다.{' '}
-          <Button onClick={() => { setDraft(toDraft(engine.schema.payload)); setBaseVersion(engine.schema.version) }}>최신본 불러오기</Button>
+          <Button variant="white" onClick={() => { setDraft(toDraft(engine.schema.payload)); setBaseVersion(engine.schema.version) }}>최신본 불러오기</Button>
         </p>
       )}
-      {msg && <p role="alert" data-testid="admin-msg" className={`mb-3 rounded-lg p-3 font-semibold ${msg.tone === 'red' ? 'bg-red-100 text-red-900' : 'bg-emerald-100 text-emerald-900'}`}>{msg.text}</p>}
+      {msg && <p role="alert" data-testid="admin-msg" className={`mb-4 rounded-2xl p-4 font-semibold ${msg.tone === 'red' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{msg.text}</p>}
 
-      <fieldset disabled={locked} className="space-y-3">
+      <fieldset disabled={locked} className="space-y-4">
         {mode === 'guides' && (['A', 'B', 'C'] as Track[]).map((t) => (
-          <label key={t} className="block">
-            <span className="text-lg font-bold">트랙 {t} 안내문</span>
+          <label key={t} className="block rounded-[20px] bg-white p-6 shadow-[var(--shadow-card)]">
+            <span className="text-[19px] font-bold text-grey-900">트랙 {t} 안내문</span>
             <textarea rows={3} value={draft.guides[t]} onChange={(e) => setDraft((d) => ({ ...d, guides: { ...d.guides, [t]: e.target.value } }))}
-              className="mt-1 w-full rounded-lg border-2 border-slate-400 p-3 text-lg" />
+              className={`${inputCls} mt-3 py-3`} />
           </label>
         ))}
 
         {mode === 'questions' && (
           <>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {SECTIONS.map((s) => (
                 <Button key={s} variant={section === s ? 'primary' : 'secondary'} onClick={() => setSection(s)}>
                   {SECTION_LABEL[s]} ({draft.sections[s].filter((q) => q.type !== 'divider').length})
                 </Button>
               ))}
             </div>
-            <p className="text-sm text-slate-600">설문은 두 화면입니다: ① 접수 ② 트랙별 문항 + 마무리. 구분선은 화면에 가로줄로만 보입니다.</p>
-            <ol className="space-y-2">
+            <p className="text-[14px] text-grey-500">설문은 두 화면입니다: ① 접수 ② 트랙별 문항 + 마무리. 구분선은 화면에 가로줄로만 보입니다.</p>
+            <ol className="space-y-3">
               {list.map((q, i) => (
-                <li key={q._uid} className={`rounded-xl border-2 bg-white p-3 ${q.type === 'divider' ? 'border-dashed border-slate-400 bg-slate-50' : 'border-slate-300'}`}>
+                <li key={q._uid} className={`rounded-[20px] p-5 shadow-[var(--shadow-card)] ${q.type === 'divider' ? 'bg-grey-50 ring-1 ring-inset ring-grey-200' : 'bg-white'}`}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="w-8 text-center font-bold text-slate-500">{i + 1}</span>
-                    <Button aria-label="위로" onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
-                    <Button aria-label="아래로" onClick={() => move(i, 1)} disabled={i === list.length - 1}>↓</Button>
+                    <span className="tabular w-8 text-center font-bold text-grey-500">{i + 1}</span>
+                    <Button size="sm" aria-label="위로" onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
+                    <Button size="sm" aria-label="아래로" onClick={() => move(i, 1)} disabled={i === list.length - 1}>↓</Button>
                     <select aria-label="유형" value={q.type} onChange={(e) => patch(q._uid, { type: e.target.value as QuestionType })}
-                      className="min-h-11 rounded-lg border-2 border-slate-400 px-2">
+                      className={`${inputCls} !w-auto`}>
                       {Object.entries(QUESTION_TYPE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                     </select>
                     <input aria-label="key" value={q.key} onChange={(e) => changeKey(q, e.target.value)}
-                      className={`min-h-11 w-44 rounded-lg border-2 px-2 font-mono ${isProtected(q) ? 'border-slate-300 bg-slate-100 text-slate-600' : 'border-slate-400'}`}
+                      className={`${inputCls} !w-44 font-mono ${isProtected(q) ? '!bg-grey-100 !text-grey-500' : ''}`}
                       title={isProtected(q) ? '응답이 있거나 예약된 key 라서 바꿀 수 없습니다' : ''} />
-                    {isProtected(q) && <Badge tone="amber">{used.has(q._orig!) ? '응답 있음' : '예약'}</Badge>}
+                    {isProtected(q) && <Badge tone="orange">{used.has(q._orig!) ? '응답 있음' : '예약'}</Badge>}
                     {q.type !== 'divider' && (
-                      <label className="flex items-center gap-1"><input type="checkbox" checked={!!q.required} onChange={(e) => patch(q._uid, { required: e.target.checked })} className="h-5 w-5" /> 필수</label>
+                      <label className="flex items-center gap-1.5 text-[15px] text-grey-700"><input type="checkbox" checked={!!q.required} onChange={(e) => patch(q._uid, { required: e.target.checked })} className="h-5 w-5 accent-blue-500" /> 필수</label>
                     )}
                     {q.type === 'multi' && (
-                      <label className="flex items-center gap-1"><input type="checkbox" checked={!!q.gameList} onChange={(e) => patch(q._uid, { gameList: e.target.checked })} className="h-5 w-5" /> 게임 목록(카드 인쇄)</label>
+                      <label className="flex items-center gap-1.5 text-[15px] text-grey-700"><input type="checkbox" checked={!!q.gameList} onChange={(e) => patch(q._uid, { gameList: e.target.checked })} className="h-5 w-5 accent-blue-500" /> 게임 목록(카드 인쇄)</label>
                     )}
-                    <span className="ml-auto flex gap-1">
-                      <Button onClick={() => duplicate(q)}>복제</Button>
-                      <Button variant="danger" onClick={() => remove(q)}>삭제</Button>
+                    <span className="ml-auto flex gap-2">
+                      <Button size="sm" onClick={() => duplicate(q)}>복제</Button>
+                      <Button size="sm" variant="dangerWeak" onClick={() => remove(q)}>삭제</Button>
                     </span>
                   </div>
                   {q.type !== 'divider' && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-4 grid grid-cols-2 gap-3">
                       <input aria-label="문구" value={q.label} onChange={(e) => patch(q._uid, { label: e.target.value })} placeholder="문구"
-                        className="min-h-11 rounded-lg border-2 border-slate-400 px-2 text-lg" />
+                        className={inputCls} />
                       <input aria-label="도움말" value={q.help ?? ''} onChange={(e) => patch(q._uid, { help: e.target.value })} placeholder="도움말"
-                        className="min-h-11 rounded-lg border-2 border-slate-400 px-2" />
+                        className={inputCls} />
                       {(q.type === 'single' || q.type === 'multi') && (
                         <label className="col-span-1">
-                          <span className="text-sm text-slate-600">보기 (한 줄에 하나)</span>
+                          <span className="text-[14px] text-grey-500">보기 (한 줄에 하나)</span>
                           <textarea aria-label="보기" rows={Math.min(8, (q.options?.length ?? 1) + 1)} value={(q.options ?? []).join('\n')}
                             onChange={(e) => patch(q._uid, { options: e.target.value.split('\n').map((x) => x.trim()).filter((x, idx, arr) => x || idx === arr.length - 1) })}
                             onBlur={(e) => patch(q._uid, { options: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })}
-                            className="w-full rounded-lg border-2 border-slate-400 p-2" />
+                            className={`${inputCls} mt-1 py-2`} />
                         </label>
                       )}
                       <div className="col-span-1 flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-slate-600">표시 조건</span>
+                        <span className="text-[14px] text-grey-500">표시 조건</span>
                         <select aria-label="표시 조건 문항" value={q.showIf?.key ?? ''} onChange={(e) => patch(q._uid, { showIf: e.target.value ? { key: e.target.value, in: q.showIf?.in ?? [] } : undefined })}
-                          className="min-h-11 rounded-lg border-2 border-slate-400 px-2">
+                          className={`${inputCls} !w-auto`}>
                           <option value="">항상 표시</option>
                           {questionKeys.filter((x) => x._uid !== q._uid).map((x) => <option key={x._uid} value={x.key}>{x.key}</option>)}
                         </select>
                         {q.showIf?.key && (
                           <input aria-label="표시 조건 값" value={q.showIf.in.join(', ')} placeholder="값1, 값2"
                             onChange={(e) => patch(q._uid, { showIf: { key: q.showIf!.key, in: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })}
-                            className="min-h-11 flex-1 rounded-lg border-2 border-slate-400 px-2" />
+                            className={`${inputCls} !w-auto flex-1`} />
                         )}
                       </div>
                     </div>
@@ -271,15 +272,15 @@ function SchemaEditor({ mode }: { mode: 'questions' | 'guides' }) {
               ))}
             </ol>
             <div className="flex gap-2">
-              <Button onClick={() => add('single')}>+ 문항 추가</Button>
-              <Button onClick={() => add('divider')}>+ 구분선</Button>
+              <Button variant="tonal" onClick={() => add('single')}>+ 문항 추가</Button>
+              <Button variant="tonal" onClick={() => add('divider')}>+ 구분선</Button>
             </div>
           </>
         )}
       </fieldset>
 
-      <div className="sticky bottom-0 mt-4 flex justify-end gap-2 border-t-2 border-slate-300 bg-slate-100 py-3">
-        <Button onClick={() => { setDraft(toDraft(engine.schema.payload)); setMsg(null) }}>되돌리기</Button>
+      <div className="sticky bottom-0 mt-6 flex justify-end gap-2 bg-grey-100 py-4">
+        <Button variant="white" onClick={() => { setDraft(toDraft(engine.schema.payload)); setMsg(null) }}>되돌리기</Button>
         <Button variant="primary" size="lg" onClick={() => void save()} disabled={saving}>{locked ? '잠금 중 (저장 불가)' : '저장'}</Button>
       </div>
     </div>
@@ -304,29 +305,31 @@ function StaffEditor() {
   }
 
   return (
-    <div className="space-y-3">
-      {msg && <p role="alert" className="rounded-lg bg-slate-200 p-3 font-semibold">{msg}</p>}
-      <table className="w-full rounded-xl bg-white text-lg">
-        <thead><tr className="border-b-2 text-left"><th className="p-2">이름</th><th>활성</th><th>권한</th><th>계정 연결</th></tr></thead>
-        <tbody>
+    <div className="space-y-4">
+      {msg && <p role="alert" className="rounded-2xl bg-grey-200 p-4 font-semibold text-grey-800">{msg}</p>}
+      <div className="rounded-[20px] bg-white p-2 shadow-[var(--shadow-card)]">
+      <table className="w-full text-[16px]">
+        <thead><tr className="text-left text-[14px] text-grey-500"><th className="p-4 font-medium">이름</th><th className="font-medium">활성</th><th className="font-medium">권한</th><th className="font-medium">계정 연결</th></tr></thead>
+        <tbody className="divide-y divide-grey-100">
           {rows.map((s, i) => (
-            <tr key={s.id} className="border-b">
-              <td className="p-2"><input aria-label="담당자 이름" value={s.name} onChange={(e) => setRows((r) => r.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                className="min-h-11 rounded border-2 border-slate-300 px-2" /></td>
-              <td><input type="checkbox" className="h-6 w-6" checked={s.active} onChange={(e) => setRows((r) => r.map((x, j) => (j === i ? { ...x, active: e.target.checked } : x)))} /></td>
+            <tr key={s.id} className="hover:bg-grey-50">
+              <td className="p-3"><input aria-label="담당자 이름" value={s.name} onChange={(e) => setRows((r) => r.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                className={`${inputCls} !w-auto`} /></td>
+              <td><input type="checkbox" className="h-6 w-6 accent-blue-500" checked={s.active} onChange={(e) => setRows((r) => r.map((x, j) => (j === i ? { ...x, active: e.target.checked } : x)))} /></td>
               <td>
                 <select value={s.role} onChange={(e) => setRows((r) => r.map((x, j) => (j === i ? { ...x, role: e.target.value as Staff['role'] } : x)))}
-                  className="min-h-11 rounded border-2 border-slate-300 px-2">
+                  className={`${inputCls} !w-auto`}>
                   <option value="operator">operator</option><option value="admin">admin</option>
                 </select>
               </td>
-              <td className="text-sm text-slate-600">{s.auth_user_id ? '연결됨' : '—'}</td>
+              <td className="text-[14px] text-grey-500">{s.auth_user_id ? '연결됨' : '—'}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
       <div className="flex gap-2">
-        <input aria-label="새 담당자" value={name} onChange={(e) => setName(e.target.value)} placeholder="새 담당자 이름" className="min-h-11 rounded-lg border-2 border-slate-400 px-2" />
+        <input aria-label="새 담당자" value={name} onChange={(e) => setName(e.target.value)} placeholder="새 담당자 이름" className={`${inputCls} !w-auto`} />
         <Button onClick={() => { if (name.trim()) { setRows((r) => [...r, { id: crypto.randomUUID(), name: name.trim(), active: true, role: 'operator', auth_user_id: null }]); setName('') } }}>추가</Button>
         <Button variant="primary" className="ml-auto" onClick={() => void save()}>담당자 저장</Button>
       </div>
@@ -354,10 +357,10 @@ function LockPanel() {
   }
 
   return (
-    <div className="rounded-xl border-2 border-slate-300 bg-white p-6">
-      <p className="text-xl">현재 상태: <b data-testid="lock-state">{locked ? '잠금' : '편집 가능'}</b></p>
-      <p className="mt-2 text-slate-700">행사 당일 아침에 잠그세요. 잠그면 admin 을 포함해 누구도 설문 구조를 바꿀 수 없습니다.</p>
-      {msg && <p role="alert" className="mt-3 rounded bg-slate-200 p-2 font-semibold">{msg}</p>}
+    <Card>
+      <p className="text-[19px] text-grey-900">현재 상태: <b data-testid="lock-state">{locked ? '잠금' : '편집 가능'}</b></p>
+      <p className="mt-2 text-grey-700">행사 당일 아침에 잠그세요. 잠그면 admin 을 포함해 누구도 설문 구조를 바꿀 수 없습니다.</p>
+      {msg && <p role="alert" className="mt-4 rounded-2xl bg-grey-100 p-4 font-semibold text-grey-800">{msg}</p>}
       <div className="mt-4">
         {locked
           ? <Button variant="danger" size="lg" onClick={() => setStep(1)}>잠금 해제…</Button>
@@ -385,7 +388,7 @@ function LockPanel() {
       {step === 2 && locked && (
         <Modal title="한 번 더 확인합니다 (2/2)" onClose={() => setStep(0)}>
           <label className="block text-lg">확인을 위해 <b>{PHRASE}</b> 라고 입력하세요
-            <input aria-label="확인 문구" value={typed} onChange={(e) => setTyped(e.target.value)} className="mt-2 min-h-12 w-full rounded-lg border-2 border-slate-400 px-3" autoFocus />
+            <input aria-label="확인 문구" value={typed} onChange={(e) => setTyped(e.target.value)} className={`${inputCls} mt-2`} autoFocus />
           </label>
           <div className="mt-6 flex justify-end gap-2">
             <Button onClick={() => setStep(0)}>취소</Button>
@@ -393,6 +396,6 @@ function LockPanel() {
           </div>
         </Modal>
       )}
-    </div>
+    </Card>
   )
 }
