@@ -64,8 +64,9 @@ export function normalizeAgeGroup(v: string): string {
 
 export function normalizeSex(v: string): 'F' | 'M' | '?' {
   const t = (v ?? '').trim().toLowerCase()
-  if (t === 'female') return 'F'
-  if (t === 'male') return 'M'
+  // 지시서는 female/male 이지만 실제 추출본(2026-09-14)은 F/M 이다. 둘 다 받는다
+  if (t === 'female' || t === 'f' || t === '여') return 'F'
+  if (t === 'male' || t === 'm' || t === '남') return 'M'
   return '?'
 }
 

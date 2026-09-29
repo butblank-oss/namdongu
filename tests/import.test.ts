@@ -111,3 +111,10 @@ describe('script source', () => {
     expect(src).not.toMatch(/\.from\(\s*['"`]responses['"`]\s*\)/)
   })
 })
+
+describe('normalizeSex (실제 추출본 형식)', () => {
+  it('F/M 과 female/male 을 모두 받는다', async () => {
+    const { normalizeSex } = await import('../src/lib/importRules.ts')
+    expect(['F', 'M', 'female', 'male', 'male ', '미상', ''].map(normalizeSex)).toEqual(['F', 'M', 'F', 'M', 'M', '?', '?'])
+  })
+})
