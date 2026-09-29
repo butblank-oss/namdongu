@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useDB, useEngine, useResponseIndex } from '../app/context'
 import { Badge, Button, Modal, Screen, TRACK_TONE } from '../components/ui'
 import { nowIso } from '../lib/engine'
-import type { Participant, Track, Verified } from '../lib/types'
+import { COHORT_LABEL, type Participant, type Track, type Verified } from '../lib/types'
 
 export function VerifyScreen() {
   const { pid = '' } = useParams()
@@ -97,7 +97,7 @@ function VerifyCard({ participant: p, onBack, engine }: { participant: Participa
           <span>생년 <b>{p.birth_year ?? '?'}</b></span>
           <span>{p.age_group === '?' ? '연령 ?' : `${p.age_group}대`} · {p.sex === 'F' ? '여성' : p.sex === 'M' ? '남성' : '성별 ?'}</span>
           <span className="font-bold">{p.name_masked}</span>
-          <Badge>{p.cohort === '26' ? '26년' : p.cohort === '2' ? '2기' : '기수 미상'}</Badge>
+          <Badge>{COHORT_LABEL[p.cohort]}</Badge>
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-2" role="group" aria-label="트랙">

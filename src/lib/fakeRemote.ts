@@ -177,7 +177,7 @@ export function makeFakeParticipants(n: number, seed = 7): Participant[] {
       sex: pick(['F', 'F', 'M', '?'] as const),
       days_since_last_activity: dsl,
       total_activity_cnt: tot,
-      cohort: pick(['26', '26', '2', '?'] as const),
+      cohort: '3',
       track,
       snapshot_date: '2026-09-14',
     })

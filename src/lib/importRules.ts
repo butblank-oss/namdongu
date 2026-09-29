@@ -5,6 +5,10 @@ export const TARGET_PROVIDER = '인천 남동구 치매안심센터'
 const TEST_NAME_PATTERN = /PRD|TEST|테스트|개발|샘플/i
 
 export type Track = 'A' | 'B' | 'C'
+export type Cohort = '3' | '2' | '1' | '?'
+
+/** 행사 대상 기수. 2026년 과정(두뇌운동 치매예방교실-26년, 2026-03-02 ~ 10-31)이 3기다 */
+export const TARGET_COHORT: Cohort = '3'
 
 export interface SourceRow {
   user_id: string
@@ -30,12 +34,12 @@ export interface ParticipantRow {
   sex: 'F' | 'M' | '?'
   days_since_last_activity: number | null
   total_activity_cnt: number
-  cohort: '26' | '2' | '?'
+  cohort: Cohort
   track: Track
   snapshot_date: string
 }
 
-export type ExcludeReason = 'not_target' | 'no_name' | 'test_account' | 'withdrawn'
+export type ExcludeReason = 'not_target' | 'no_name' | 'test_account' | 'withdrawn' | 'not_cohort3'
 
 function toInt(v: string | undefined): number | null {
   if (v == null) return null
@@ -70,10 +74,15 @@ export function normalizeSex(v: string): 'F' | 'M' | '?' {
   return '?'
 }
 
-export function normalizeCohort(challengeNames: string): '26' | '2' | '?' {
-  const t = challengeNames ?? ''
-  if (t.includes('26년')) return '26'
-  if (t.includes('2기')) return '2'
+/**
+ * 참여 프로그램명에서 가장 최근 기수.
+ *  3기 = 두뇌운동 치매예방교실-26년 (2026) / 2기 = 두뇌운동 치매예방교실 2기 (2025) / 1기 = 두뇌운동 치매예방교실 (2024)
+ */
+export function normalizeCohort(challengeNames: string): Cohort {
+  const names = (challengeNames ?? '').split('|').map((x) => x.trim())
+  if (names.some((n) => n.includes('26년') || n.includes('3기'))) return '3'
+  if (names.some((n) => n.includes('2기'))) return '2'
+  if (names.some((n) => n === '두뇌운동 치매예방교실')) return '1'
   return '?'
 }
 
@@ -83,6 +92,8 @@ export function classifyRow(row: SourceRow): ExcludeReason | null {
   if (name === '') return 'no_name'
   if (TEST_NAME_PATTERN.test(name)) return 'test_account'
   if ((row.user_status ?? '').trim() === 'withdrawn') return 'withdrawn'
+  // 3기 중심: 2기·1기만 참여한 분은 명단에서 빼고, 현장에 오시면 '명단 외 추가(이전 기수)'로 처리
+  if (normalizeCohort(row.challenge_names) !== TARGET_COHORT) return 'not_cohort3'
   return null
 }
 
@@ -109,36 +120,38 @@ export interface ImportSummary {
   included: ParticipantRow[]
   excluded: Record<ExcludeReason, number>
   byTrack: Record<Track, number>
-  byCohort: Record<'26' | '2' | '?', number>
+  /** 제외 규칙 중 기수 조건만 빼고 적용했을 때의 기수 분포 (참고용) */
+  byCohort: Record<Cohort, number>
   nullBirthYear: number
 }
 
 export function transformRows(rows: SourceRow[], snapshotDate: string): ImportSummary {
   const excluded: Record<ExcludeReason, number> = {
-    not_target: 0, no_name: 0, test_account: 0, withdrawn: 0,
+    not_target: 0, no_name: 0, test_account: 0, withdrawn: 0, not_cohort3: 0,
   }
+  const byCohort: Record<Cohort, number> = { '3': 0, '2': 0, '1': 0, '?': 0 }
   const byId = new Map<string, ParticipantRow>()
   for (const row of rows) {
     const reason = classifyRow(row)
+    if (reason === null || reason === 'not_cohort3') byCohort[normalizeCohort(row.challenge_names)]++
     if (reason) { excluded[reason]++; continue }
     const p = toParticipant(row, snapshotDate)
     byId.set(p.id, p)
   }
   const included = [...byId.values()]
   const byTrack = { A: 0, B: 0, C: 0 }
-  const byCohort = { '26': 0, '2': 0, '?': 0 }
   let nullBirthYear = 0
   for (const p of included) {
     byTrack[p.track]++
-    byCohort[p.cohort]++
     if (p.birth_year == null) nullBirthYear++
   }
   return { included, excluded, byTrack, byCohort, nullBirthYear }
 }
 
-// 2026-09-14 추출본 기준 기대값. 크게 다르면 로직을 의심한다.
+// 2026-09-14 추출본 기준 기대값 (3기만). 크게 다르면 로직을 의심한다.
+// 참고: 기수 제한 전(지시서 원안)은 1,523명 = 3기 891 + 2기 582 + 1기 50
 export const EXPECTED_20260914 = {
-  total: 1523,
-  byTrack: { A: 351, B: 454, C: 718 },
-  byCohort: { '26': 891, '2': 582, '?': 50 },
+  total: 891,
+  byTrack: { A: 301, B: 158, C: 432 },
+  byCohort: { '3': 891, '2': 582, '1': 50, '?': 0 },
 }

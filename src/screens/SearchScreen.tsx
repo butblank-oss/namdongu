@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useParticipants, useResponseIndex } from '../app/context'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
 import { searchParticipants } from '../lib/search'
-import type { Cohort, LocalResponse, Participant, Track } from '../lib/types'
+import { COHORT_LABEL, type LocalResponse, type Participant, type Track } from '../lib/types'
 
 const LIMIT = 50
 type StatusFilter = 'todo' | 'progress' | 'done'
@@ -49,7 +49,6 @@ export function SearchScreen() {
   const [q, setQ] = useState(() => { try { return sessionStorage.getItem(SEARCH_KEY) ?? '' } catch { return '' } })
   const [tracks, setTracks] = useState<Track[]>([])
   const [statuses, setStatuses] = useState<StatusFilter[]>([])
-  const [cohorts, setCohorts] = useState<Cohort[]>([])
 
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
   useEffect(() => { try { sessionStorage.setItem(SEARCH_KEY, q) } catch { /* 무시 */ } }, [q])
@@ -58,9 +57,8 @@ export function SearchScreen() {
     const list = (participants ?? []).filter((p) => p.active !== false || index.has(p.id))
     return searchParticipants(list, q).filter(({ participant: p }) =>
       (!tracks.length || tracks.includes(p.track))
-      && (!cohorts.length || cohorts.includes(p.cohort))
       && (!statuses.length || statuses.includes(statusOf(index.get(p.id)))))
-  }, [participants, q, tracks, cohorts, statuses, index])
+  }, [participants, q, tracks, statuses, index])
 
   const shown = results.slice(0, LIMIT)
   const open = (p: Participant) => navigate(`/p/${p.id}`)
@@ -97,8 +95,6 @@ export function SearchScreen() {
         <Toggle label="트랙" value={tracks} onChange={setTracks} options={[{ v: 'A', label: 'A' }, { v: 'B', label: 'B' }, { v: 'C', label: 'C' }]} />
         <Toggle label="상태" value={statuses} onChange={setStatuses}
           options={[{ v: 'todo', label: '미착수' }, { v: 'progress', label: '진행중' }, { v: 'done', label: '완료' }]} />
-        <Toggle label="기수" value={cohorts} onChange={setCohorts}
-          options={[{ v: '26', label: '26년' }, { v: '2', label: '2기' }, { v: '?', label: '미상' }]} />
       </div>
 
       <p className="mt-3 text-base text-slate-600" data-testid="result-count">
@@ -125,7 +121,7 @@ export function SearchScreen() {
                 <span className="w-28 text-lg text-slate-700">{p.birth_year ?? '생년 ?'}</span>
                 <span className="w-24 text-lg text-slate-700">{p.age_group === '?' ? '연령 ?' : `${p.age_group}대`} · {p.sex === 'F' ? '여' : p.sex === 'M' ? '남' : '?'}</span>
                 <Badge tone={TRACK_TONE[p.track]}>트랙 {p.track}</Badge>
-                <Badge>{p.cohort === '26' ? '26년' : p.cohort === '2' ? '2기' : '기수 미상'}</Badge>
+                {p.cohort !== '3' && <Badge tone="red">{COHORT_LABEL[p.cohort]}</Badge>}
                 <span className="ml-auto"><StatusBadge r={r} /></span>
               </button>
             </li>

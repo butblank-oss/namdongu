@@ -1,4 +1,4 @@
-import type { Participant, ResponseRow, SurveyPayload } from './types'
+import { COHORT_LABEL, type Participant, type ResponseRow, type SurveyPayload } from './types'
 
 export const MULTI_SEPARATOR = '; '
 const BOM = '﻿'
@@ -37,7 +37,7 @@ export function buildResponsesCsv(
       return [
         r.id, r.participant_id, m ? '명단 외' : '명단',
         p?.name_masked ?? m?.name, p?.phone_last4 ?? m?.phone_last4, p?.age_group ?? m?.age_group, p?.sex ?? m?.sex,
-        p?.cohort === '?' ? '미상' : p?.cohort, m?.reason,
+        p ? COHORT_LABEL[p.cohort] : undefined, m?.reason,
         r.track, VERIFIED_LABEL[r.verified] ?? r.verified, r.verified_by, r.verified_at, r.real_name, r.consent, r.helpers,
         STATUS_LABEL[r.status] ?? r.status, r.result, r.entered_by, r.started_at, r.completed_at, r.updated_at,
         ...questions.map((q) => r.answers[q.key]),

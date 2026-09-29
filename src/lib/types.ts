@@ -1,5 +1,6 @@
 export type Track = 'A' | 'B' | 'C'
-export type Cohort = '26' | '2' | '?'
+export type Cohort = '3' | '2' | '1' | '?'
+export const COHORT_LABEL: Record<Cohort, string> = { '3': '3기', '2': '2기', '1': '1기', '?': '기수 미상' }
 export type Verified = 'ok' | 'failed' | 'skipped'
 export type Status = 'in_progress' | 'done' | 'refused' | 'revisit'
 export type AnswerValue = string | string[]

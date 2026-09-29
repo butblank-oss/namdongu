@@ -11,7 +11,7 @@ export function P(id: number, name: string, phone: string, track: Participant['t
     id: `11111111-0000-4000-8000-${String(id).padStart(12, '0')}`,
     name_masked: name, phone_last4: phone, birth_year: '1948', age_group: '70', sex: 'F',
     days_since_last_activity: track === 'A' ? 3 : track === 'B' ? 60 : null,
-    total_activity_cnt: track === 'B' ? 40 : 5, cohort: '26', track, snapshot_date: '2026-09-14', ...extra,
+    total_activity_cnt: track === 'B' ? 40 : 5, cohort: '3', track, snapshot_date: '2026-09-14', ...extra,
   }
 }
 
@@ -22,8 +22,8 @@ export const FIXTURE: Participant[] = [
   P(3, '이*희', '8801', 'C'),
   P(4, '박*호', '1880', 'A'),
   P(5, '간*숙', '5555', 'B'),
-  P(6, '최*자', '8800', 'C', { cohort: '2' }),
-  P(7, '정*옥', '0420', 'C', { cohort: '?' }),
+  P(6, '최*자', '8800', 'C'),
+  P(7, '정*옥', '0420', 'C'),
 ]
 
 let dbSeq = 0

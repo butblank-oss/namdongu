@@ -51,11 +51,12 @@ describe('runImport on fixture', () => {
     const s = await runImport({ rows: fixture(), snapshotDate: '2026-09-14', client: null, dryRun: true })
     expect(s.totalSource).toBe(26)
     expect(s.providerRows).toBe(24)
-    expect(s.excluded).toEqual({ not_target: 2, no_name: 1, test_account: 4, withdrawn: 1 })
-    expect(s.included).toHaveLength(17) // duplicate user_id collapsed
-    expect(s.byTrack).toEqual({ A: 11, B: 3, C: 3 })
-    expect(s.byCohort).toEqual({ '26': 14, '2': 2, '?': 1 })
-    expect(s.nullBirthYear).toBe(2)
+    expect(s.excluded).toEqual({ not_target: 2, no_name: 1, test_account: 4, withdrawn: 1, not_cohort3: 3 })
+    expect(s.included).toHaveLength(14) // 3기만, duplicate user_id collapsed
+    expect(s.included.every((p) => p.cohort === '3')).toBe(true)
+    expect(s.byTrack).toEqual({ A: 9, B: 2, C: 3 })
+    expect(s.byCohort).toEqual({ '3': 15, '2': 2, '1': 0, '?': 1 })
+    expect(s.nullBirthYear).toBe(1)
     expect(s.nullPhone).toBe(1)
     expect(s.warnings.length).toBeGreaterThan(0)
   })
@@ -76,7 +77,7 @@ describe('runImport on fixture', () => {
       'snapshot_date', 'active', 'updated_at',
     ])
     const out = calls.upserts.flat()
-    expect(out).toHaveLength(17)
+    expect(out).toHaveLength(14)
     for (const r of out) {
       for (const k of Object.keys(r)) expect(allowed.has(k)).toBe(true)
       expect(r.active).toBe(true)
@@ -91,7 +92,7 @@ describe('runImport on fixture', () => {
     const ids = first.included.map((p) => p.id)
     const { client, calls } = fake([...ids, 'gone-1', 'gone-2'])
     const s = await runImport({ rows, snapshotDate: '2026-09-14', client, dryRun: false })
-    expect(calls.upserts.flat()).toHaveLength(17)
+    expect(calls.upserts.flat()).toHaveLength(14)
     expect(calls.deactivated).toEqual([['gone-1', 'gone-2']])
     expect(s.deactivated).toEqual(['gone-1', 'gone-2'])
   })
@@ -116,5 +117,16 @@ describe('normalizeSex (실제 추출본 형식)', () => {
   it('F/M 과 female/male 을 모두 받는다', async () => {
     const { normalizeSex } = await import('../src/lib/importRules.ts')
     expect(['F', 'M', 'female', 'male', 'male ', '미상', ''].map(normalizeSex)).toEqual(['F', 'M', 'F', 'M', 'M', '?', '?'])
+  })
+})
+
+describe('normalizeCohort (3기 = 2026년 과정)', () => {
+  it('가장 최근 기수를 고른다', async () => {
+    const { normalizeCohort } = await import('../src/lib/importRules.ts')
+    expect(normalizeCohort('두뇌운동 치매예방교실-26년')).toBe('3')
+    expect(normalizeCohort('두뇌운동 치매예방교실 2기 | 두뇌운동 치매예방교실-26년')).toBe('3')
+    expect(normalizeCohort('두뇌운동 치매예방교실 | 두뇌운동 치매예방교실 2기')).toBe('2')
+    expect(normalizeCohort('단기 기억력 측정해보기 | 두뇌운동 치매예방교실')).toBe('1')
+    expect(normalizeCohort('단기 기억력 측정해보기')).toBe('?')
   })
 })

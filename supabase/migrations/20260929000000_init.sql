@@ -40,7 +40,7 @@ create table public.participants (
   sex                        text not null default '?' check (sex in ('F', 'M', '?')),
   days_since_last_activity   int,
   total_activity_cnt         int not null default 0,
-  cohort                     text not null default '?' check (cohort in ('26', '2', '?')),
+  cohort                     text not null default '?' check (cohort in ('3', '2', '1', '?')),  -- 3기=2026, 2기=2025, 1기=2024. 명단은 3기만 임포트
   track                      text not null check (track in ('A', 'B', 'C')),
   snapshot_date              date not null,
   active                     boolean not null default true,  -- 재임포트 시 빠진 사람(탈퇴 등)은 false

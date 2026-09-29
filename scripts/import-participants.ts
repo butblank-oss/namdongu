@@ -63,7 +63,7 @@ export function compareExpected(s: ImportSummary): string[] {
   }
   chk('total', s.included.length, EXPECTED_20260914.total)
   for (const t of ['A', 'B', 'C'] as const) chk(`track ${t}`, s.byTrack[t], EXPECTED_20260914.byTrack[t])
-  for (const c of ['26', '2', '?'] as const) chk(`cohort ${c}`, s.byCohort[c], EXPECTED_20260914.byCohort[c])
+  for (const c of ['3', '2', '1', '?'] as const) chk(`cohort ${c}`, s.byCohort[c], EXPECTED_20260914.byCohort[c])
   return warnings
 }
 
