@@ -22,7 +22,7 @@ export function buildResponsesCsv(
   const extraKeys = [...new Set(responses.flatMap((r) => Object.keys(r.answers)))].filter((k) => !known.has(k)).sort()
 
   const header = [
-    '응답ID', '참여자ID', '구분', '이름(마스킹)', '전화 뒷4자리', '연령대', '성별', '기수', '명단 외 사유',
+    '응답ID', '참여자ID', '구분', '이름(마스킹)', '이름(명단 실명)', '전화 뒷4자리', '연령대', '성별', '기수', '명단 외 사유',
     '트랙', '본인확인', '확인자', '확인시각', '실명', '동의',
     '상태', '응대 결과', '입력자', '시작', '완료', '수정',
     ...questions.map((q) => `${q.label} [${q.key}]`),
@@ -36,7 +36,7 @@ export function buildResponsesCsv(
       const m = r.manual_info
       return [
         r.id, r.participant_id, m ? '명단 외' : '명단',
-        p?.name_masked ?? m?.name, p?.phone_last4 ?? m?.phone_last4, p?.age_group ?? m?.age_group, p?.sex ?? m?.sex,
+        p?.name_masked ?? m?.name, p?.full_name ?? m?.name, p?.phone_last4 ?? m?.phone_last4, p?.age_group ?? m?.age_group, p?.sex ?? m?.sex,
         p ? COHORT_LABEL[p.cohort] : undefined, m?.reason,
         r.track, VERIFIED_LABEL[r.verified] ?? r.verified, r.verified_by, r.verified_at, r.real_name, r.consent,
         STATUS_LABEL[r.status] ?? r.status, r.result, r.entered_by, r.started_at, r.completed_at, r.updated_at,

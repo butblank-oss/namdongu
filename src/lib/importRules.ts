@@ -28,6 +28,8 @@ export interface SourceRow {
 export interface ParticipantRow {
   id: string
   name_masked: string
+  /** 실명. 추출본에 실명 열이 없으면 undefined (그때는 DB 값을 건드리지 않는다) */
+  full_name?: string | null
   phone_last4: string | null
   birth_year: string | null
   age_group: string
@@ -97,13 +99,26 @@ export function classifyRow(row: SourceRow): ExcludeReason | null {
   return null
 }
 
-export function toParticipant(row: SourceRow, snapshotDate: string): ParticipantRow {
+/** 실명이 들어 있을 수 있는 열 이름 (운영 DB 추출본마다 다를 수 있다) */
+export const FULL_NAME_COLUMNS = ['full_name', 'name', 'name_full', 'real_name', 'user_name', '이름', '성명', '실명']
+
+export function fullNameColumn(header: string[]): string | null {
+  return FULL_NAME_COLUMNS.find((c) => header.includes(c)) ?? null
+}
+
+/** 실명이 마스킹 이름과 맞는지 (길이 같고 * 자리 빼고 일치) */
+export function fullNameMatchesMasked(full: string, masked: string): boolean {
+  return full.length === masked.length && [...masked].every((c, i) => c === '*' || c === full[i])
+}
+
+export function toParticipant(row: SourceRow, snapshotDate: string, nameColumn: string | null = null): ParticipantRow {
   const dsl = toInt(row.days_since_last_activity)
   const tot = toInt(row.total_activity_cnt) ?? 0
   const by = (row.birthyear ?? '').trim()
   return {
     id: row.user_id.trim(),
     name_masked: row.name_masked.trim(),
+    ...(nameColumn ? { full_name: ((row[nameColumn] ?? '').trim().replace(/\*/g, '') || null) } : {}),
     phone_last4: phoneLast4(row.mobile_masked),
     birth_year: /^\d{4}$/.test(by) ? by : null,
     age_group: normalizeAgeGroup(row.age_group),
@@ -123,6 +138,10 @@ export interface ImportSummary {
   /** 제외 규칙 중 기수 조건만 빼고 적용했을 때의 기수 분포 (참고용) */
   byCohort: Record<Cohort, number>
   nullBirthYear: number
+  /** 실명 열 이름 (없으면 null) · 실명이 채워진 인원 · 마스킹 이름과 모양이 다른 인원 */
+  nameColumn: string | null
+  fullNames: number
+  fullNameMismatch: number
 }
 
 export function transformRows(rows: SourceRow[], snapshotDate: string): ImportSummary {
@@ -131,21 +150,28 @@ export function transformRows(rows: SourceRow[], snapshotDate: string): ImportSu
   }
   const byCohort: Record<Cohort, number> = { '3': 0, '2': 0, '1': 0, '?': 0 }
   const byId = new Map<string, ParticipantRow>()
+  const nameColumn = rows.length ? fullNameColumn(Object.keys(rows[0])) : null
   for (const row of rows) {
     const reason = classifyRow(row)
     if (reason === null || reason === 'not_cohort3') byCohort[normalizeCohort(row.challenge_names)]++
     if (reason) { excluded[reason]++; continue }
-    const p = toParticipant(row, snapshotDate)
+    const p = toParticipant(row, snapshotDate, nameColumn)
     byId.set(p.id, p)
   }
   const included = [...byId.values()]
   const byTrack = { A: 0, B: 0, C: 0 }
   let nullBirthYear = 0
+  let fullNames = 0
+  let fullNameMismatch = 0
   for (const p of included) {
     byTrack[p.track]++
     if (p.birth_year == null) nullBirthYear++
+    if (p.full_name) {
+      fullNames++
+      if (!fullNameMatchesMasked(p.full_name, p.name_masked)) fullNameMismatch++
+    }
   }
-  return { included, excluded, byTrack, byCohort, nullBirthYear }
+  return { included, excluded, byTrack, byCohort, nameColumn, fullNames, fullNameMismatch, nullBirthYear }
 }
 
 // 2026-09-14 추출본 기준 기대값 (3기만). 크게 다르면 로직을 의심한다.

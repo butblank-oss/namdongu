@@ -16,6 +16,8 @@ export type Answers = Record<string, AnswerValue>
 export interface Participant {
   id: string
   name_masked: string
+  /** 실명 (실명 열이 있는 추출본으로 임포트했을 때만) */
+  full_name?: string | null
   phone_last4: string | null
   birth_year: string | null
   age_group: string

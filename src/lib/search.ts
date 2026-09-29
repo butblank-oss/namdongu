@@ -57,7 +57,8 @@ export function searchParticipants(list: Participant[], input: string): SearchHi
 
   const hits: SearchHit[] = []
   for (const participant of list) {
-    const score = nameMatchScore(participant.name_masked, q)
+    const full = participant.full_name?.replace(/\s+/g, '')
+    const score = full && full.includes(q.replace(/\s+/g, '')) ? 6 : nameMatchScore(participant.name_masked, q)
     if (score > 0) hits.push({ participant, score })
   }
   hits.sort((x, y) => y.score - x.score || x.participant.name_masked.localeCompare(y.participant.name_masked, 'ko'))
