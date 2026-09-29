@@ -8,7 +8,7 @@ export const DEFAULT_GAMES = [
 ]
 
 /** 응답 테이블 컬럼과 연결되는 예약 key. 어드민에서 key 변경·삭제 불가 */
-export const RESERVED_KEYS = ['consent', 'helpers', 'real_name', 'result', 'c_checklist'] as const
+export const RESERVED_KEYS = ['consent', 'real_name', 'result', 'c_checklist'] as const
 export const FIRST_GAME_KEY = 'c_checklist'
 export const FIRST_GAME_OPTION = '첫 게임 실행'
 
@@ -35,7 +35,6 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
         help: '리워드 배송과 설문 분석 목적. 동의서를 읽어 드린 뒤 선택하세요.',
         options: ['동의', '미동의'],
       },
-      { key: 'helpers', type: 'staff', label: '함께 도와준 담당자', help: '여러 명 선택 가능' },
     ],
     A: [
       {

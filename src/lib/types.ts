@@ -91,7 +91,7 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   staff: '담당자 선택',
   text: '짧은 글',
   textarea: '긴 글',
-  divider: '구분선(스텝 나눔)',
+  divider: '구분선',
 }
 
 export interface ShowIf {

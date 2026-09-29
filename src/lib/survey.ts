@@ -6,28 +6,22 @@ export interface Step {
   questions: Question[]
 }
 
-function splitByDivider(sectionTitle: string, idPrefix: string, list: Question[]): Step[] {
-  const steps: Step[] = []
-  let cur: Question[] = []
-  const push = () => {
-    if (cur.length) steps.push({ id: `${idPrefix}-${steps.length}`, title: sectionTitle, questions: cur })
-    cur = []
-  }
-  for (const q of list) {
-    if (q.type === 'divider') push()
-    else cur.push(q)
-  }
-  push()
-  return steps
-}
+const withoutDividers = (list: Question[]) => list.filter((q) => q.type !== 'divider')
 
-/** 접수 → 트랙별 → 마무리 순서의 스텝 목록. 구분선으로 스텝을 나눈다 */
+/**
+ * 화면은 두 장: 1) 접수(동의)  2) 트랙별 문항 + 마무리를 한 화면에 쭉.
+ * 구분선(divider)은 화면을 나누지 않고 가로줄로만 보인다.
+ */
 export function buildSteps(payload: SurveyPayload, track: Track): Step[] {
+  const closingHeader: Question = { key: '__closing', type: 'divider', label: '마무리' }
   return [
-    ...splitByDivider('접수', 'intake', payload.sections.intake),
-    ...splitByDivider(`트랙 ${track}`, track, payload.sections[track]),
-    ...splitByDivider('마무리', 'closing', payload.sections.closing),
-  ]
+    { id: 'intake', title: '접수', questions: withoutDividers(payload.sections.intake) },
+    {
+      id: `${track}-0`,
+      title: `트랙 ${track} · 마무리`,
+      questions: [...payload.sections[track], closingHeader, ...payload.sections.closing],
+    },
+  ].filter((st) => st.questions.some((q) => q.type !== 'divider'))
 }
 
 export function isEmpty(v: AnswerValue | undefined): boolean {
@@ -47,7 +41,7 @@ export function isVisible(q: Question, answers: Answers): boolean {
 /** 필수인데 비어 있는 (보이는) 문항 key 목록 */
 export function missingRequired(step: Step, answers: Answers): string[] {
   return step.questions
-    .filter((q) => q.required && isVisible(q, answers) && isEmpty(answers[q.key]))
+    .filter((q) => q.type !== 'divider' && q.required && isVisible(q, answers) && isEmpty(answers[q.key]))
     .map((q) => q.key)
 }
 

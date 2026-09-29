@@ -170,10 +170,18 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
       {trackGuide && <p className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-lg">{trackGuide}</p>}
 
       <div className="space-y-3" data-testid="survey-step">
-        {step.questions.filter((q) => isVisible(q, answers)).map((q) => (
-          <QuestionField key={q.key} q={q} value={answers[q.key]} invalid={errors.includes(q.key)}
-            staffNames={staffNames} onChange={onChange} />
-        ))}
+        {step.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
+          ? (
+            <div key={q.key} role="separator" className="flex items-center gap-3 pt-4">
+              <hr className="flex-1 border-t-2 border-slate-300" />
+              {q.label && <span className="text-lg font-bold text-slate-600">{q.label}</span>}
+              <hr className="flex-1 border-t-2 border-slate-300" />
+            </div>
+          )
+          : (
+            <QuestionField key={q.key} q={q} value={answers[q.key]} invalid={errors.includes(q.key)}
+              staffNames={staffNames} onChange={onChange} />
+          ))}
       </div>
 
       <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white">

@@ -210,7 +210,7 @@ function SchemaEditor({ mode }: { mode: 'questions' | 'guides' }) {
                 </Button>
               ))}
             </div>
-            <p className="text-sm text-slate-600">구분선은 스텝을 나눕니다. 한 스텝에 3~4문항을 권장합니다.</p>
+            <p className="text-sm text-slate-600">설문은 두 화면입니다: ① 접수 ② 트랙별 문항 + 마무리. 구분선은 화면에 가로줄로만 보입니다.</p>
             <ol className="space-y-2">
               {list.map((q, i) => (
                 <li key={q._uid} className={`rounded-xl border-2 bg-white p-3 ${q.type === 'divider' ? 'border-dashed border-slate-400 bg-slate-50' : 'border-slate-300'}`}>
@@ -272,7 +272,7 @@ function SchemaEditor({ mode }: { mode: 'questions' | 'guides' }) {
             </ol>
             <div className="flex gap-2">
               <Button onClick={() => add('single')}>+ 문항 추가</Button>
-              <Button onClick={() => add('divider')}>+ 구분선(스텝 나눔)</Button>
+              <Button onClick={() => add('divider')}>+ 구분선</Button>
             </div>
           </>
         )}
