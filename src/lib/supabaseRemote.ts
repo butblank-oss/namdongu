@@ -4,8 +4,13 @@ import {
 } from './remote'
 import type { AccessLogEntry, Participant, ResponseRow, Staff, SurveyPayload, SurveySchema } from './types'
 
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// 운영 프로젝트 기본값. publishable key 는 원래 공개용이다 (권한은 DB 정책이 정한다).
+// 다른 프로젝트로 돌릴 때만 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 로 덮어쓴다. 테스트 모드에서는 비운다.
+const DEFAULT_URL = 'https://zohylpxoxrqocpzyxckh.supabase.co'
+const DEFAULT_KEY = 'sb_publishable_N7RjSJG3vWpjGVx9xo1qhQ_JJu8Z_0h'
+const useDefaults = import.meta.env.MODE !== 'test'
+export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || (useDefaults ? DEFAULT_URL : undefined)
+export const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (useDefaults ? DEFAULT_KEY : undefined)
 export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
 
 let client: SupabaseClient | null = null
