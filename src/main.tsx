@@ -42,6 +42,13 @@ function Misconfigured() {
   return <Screen><p className="text-xl">서비스 설정 오류: 관리자에게 문의하세요.</p></Screen>
 }
 
+// 와이파이가 끊긴 상태에서 새로고침해도 앱이 뜨도록 (배포 빌드에서만)
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {supabaseConfigured ? <Live /> : import.meta.env.DEV ? <Demo /> : <Misconfigured />}

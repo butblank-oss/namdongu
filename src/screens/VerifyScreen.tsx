@@ -11,8 +11,16 @@ export function VerifyScreen() {
   const engine = useEngine()
   const navigate = useNavigate()
   const db = useDB()
-  const participant = useLiveQuery(() => db.participants.get(pid), [db, pid])
+  const participant = useLiveQuery(() => db.participants.get(pid).then((p) => p ?? null), [db, pid])
   if (participant === undefined) return <Screen><p className="text-xl">불러오는 중…</p></Screen>
+  if (participant === null) {
+    return (
+      <Screen>
+        <p className="text-xl">명단에서 찾을 수 없습니다.</p>
+        <Button className="mt-4" onClick={() => navigate('/')}>찾기로 돌아가기</Button>
+      </Screen>
+    )
+  }
   return <VerifyCard key={pid} participant={participant} onBack={() => navigate('/')} engine={engine} />
 }
 

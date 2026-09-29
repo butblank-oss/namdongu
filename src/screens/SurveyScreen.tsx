@@ -123,6 +123,14 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
     navigate(`/r/${engine.resolveId(initial.id)}/done`)
   }, [validate, engine, initial.id, navigate, stepKey])
 
+  const remove = useCallback(async () => {
+    if (!window.confirm('이 응답을 삭제할까요? 목록에서 사라지고 이 어르신을 새로 응대할 수 있게 됩니다.')) return
+    if (timer.current) { clearTimeout(timer.current); timer.current = null }
+    await engine.updateResponse(initial.id, (r) => ({ ...r, deleted_at: nowIso() }))
+    await engine.logAccess('delete', initial.participant_id, engine.resolveId(initial.id))
+    navigate('/')
+  }, [engine, initial.id, initial.participant_id, navigate])
+
   const leave = useCallback(async () => {
     await flush()
     navigate('/')
@@ -152,6 +160,7 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
         <span className="text-xl font-bold">{participantLabel}</span>
         <Badge tone={TRACK_TONE[initial.track]}>트랙 {initial.track}</Badge>
         {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
+        {engine.isAdmin && <Button variant="danger" onClick={() => void remove()}>응답 삭제</Button>}
         <span className="ml-auto text-lg text-slate-600">{step.title}</span>
         <span className="rounded-lg bg-slate-900 px-4 py-1 text-2xl font-black text-white" data-testid="step-indicator">
           {idx + 1} / {steps.length}
