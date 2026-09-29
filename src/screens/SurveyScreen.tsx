@@ -134,24 +134,27 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
   const pct = required.length ? Math.round((doneCount / required.length) * 100) : 100
 
   return (
-    <Screen className="pb-32">
-      <div className="sticky top-[60px] z-30 -mx-6 mb-4 border-b-2 border-slate-300 bg-slate-100/95 px-6 py-3 backdrop-blur">
+    <Screen className="max-w-3xl pb-36">
+      <div className="sticky top-[60px] z-30 -mx-6 mb-6 bg-grey-100/90 px-6 pb-3 pt-4 backdrop-blur">
         <div className="flex items-center gap-3">
-          <Button onClick={() => void leave()}>← 뒤로</Button>
-          <span className="text-xl font-bold">{participantLabel}</span>
+          <button type="button" onClick={() => void leave()} aria-label="뒤로"
+            className="grid h-10 w-10 place-items-center rounded-xl text-[22px] text-grey-700 hover:bg-grey-200">←</button>
+          <span className="text-[21px] font-bold text-grey-900">{participantLabel}</span>
           <Badge tone={TRACK_TONE[initial.track]}>{TRACK_LABEL[initial.track]}</Badge>
           {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
           {isEdit && <Badge tone="green">완료된 응답 수정 중</Badge>}
-          {engine.isAdmin && <Button variant="danger" onClick={() => void remove()}>응답 삭제</Button>}
-          <span className="ml-auto text-lg font-bold" data-testid="progress-required">필수 {doneCount} / {required.length}</span>
+          <span className="tabular ml-auto text-[15px] font-semibold text-grey-600" data-testid="progress-required">
+            필수 <span className="text-blue-500">{doneCount}</span> / {required.length}
+          </span>
+          {engine.isAdmin && <Button variant="dangerWeak" size="sm" onClick={() => void remove()}>응답 삭제</Button>}
         </div>
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-300" aria-hidden>
-            <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${pct}%` }} />
+        <div className="mt-3 flex items-center gap-3">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-grey-200" aria-hidden>
+            <div className="h-full rounded-full bg-blue-500 transition-[width] duration-300" style={{ width: `${pct}%` }} />
           </div>
           <nav className="flex gap-1" aria-label="섹션 이동">
             {sections.map((s) => (
-              <button key={s.id} type="button" className="rounded px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              <button key={s.id} type="button" className="rounded-lg px-2.5 py-1 text-[14px] font-semibold text-grey-500 hover:bg-grey-200 hover:text-grey-800"
                 onClick={() => document.getElementById(`sec-${s.id}`)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })}>
                 {s.title}
               </button>
@@ -160,18 +163,18 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
         </div>
       </div>
 
-      <div className="space-y-8" data-testid="survey-step">
+      <div className="space-y-10" data-testid="survey-step">
         {sections.map((sec) => (
           <section key={sec.id} id={`sec-${sec.id}`} className="scroll-mt-40 space-y-3" aria-label={sec.title}>
-            <h2 className="flex items-center gap-3 text-2xl font-extrabold text-slate-800">
+            <h2 className="flex items-baseline gap-2 px-1 text-[22px] font-bold text-grey-900">
               {sec.title}
-              {sec.id === 'track' && <span className="text-base font-semibold text-slate-600">{TRACK_DESC[initial.track]}</span>}
+              {sec.id === 'track' && <span className="text-[15px] font-medium text-grey-500">{TRACK_DESC[initial.track]}</span>}
             </h2>
             {sec.id === 'track' && engine.schema.payload.guides[initial.track] && (
-              <p className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-lg">{engine.schema.payload.guides[initial.track]}</p>
+              <p className="rounded-2xl bg-blue-50 px-5 py-4 text-[16px] leading-relaxed text-blue-700">{engine.schema.payload.guides[initial.track]}</p>
             )}
             {sec.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
-              ? <hr key={q.key} className="border-t-2 border-slate-300" />
+              ? <div key={q.key} className="h-2" />
               : (
                 <QuestionField key={q.key} q={q} value={answers[q.key]} etcValue={answers[etcKey(q.key)] as string | undefined}
                   invalid={errors.includes(q.key)} staffNames={staffNames} onChange={onChange} />
@@ -179,16 +182,16 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
           </section>
         ))}
         {answers.consent === '미동의' && (
-          <p className="rounded-xl bg-amber-100 p-4 text-lg">개인정보 미동의라 설문 문항은 생략합니다. 응대 결과만 남겨 주세요.</p>
+          <p className="rounded-2xl bg-orange-50 px-5 py-4 text-[16px] text-orange-600">개인정보 미동의라 설문 문항은 생략합니다. 응대 결과만 남겨 주세요.</p>
         )}
       </div>
 
-      <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
+      <div className="no-print fixed inset-x-0 bottom-0 z-30 bg-white/95 shadow-[0_-1px_0_var(--color-grey-200)] backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-4">
           {tried && errors.length > 0
-            ? <span className="font-bold text-red-700" role="status">필수 문항 {errors.length}개가 비어 있습니다</span>
-            : <span className="text-base text-slate-600">입력은 자동 저장됩니다 · Ctrl+Enter 응대 완료</span>}
-          <Button size="lg" variant="success" className="ml-auto" onClick={() => void complete()}>
+            ? <span className="text-[15px] font-semibold text-red-500" role="status">필수 문항 {errors.length}개가 비어 있습니다</span>
+            : <span className="text-[14px] text-grey-500">입력은 자동 저장돼요 · Ctrl+Enter 응대 완료</span>}
+          <Button size="xl" variant="primary" className="ml-auto min-w-56" onClick={() => void complete()}>
             {isEdit ? '수정 완료' : '응대 완료'}
           </Button>
         </div>
