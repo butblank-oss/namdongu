@@ -13,7 +13,9 @@ describe('오프라인', () => {
     const user = userEvent.setup()
 
     goOffline(remote)
-    expect(screen.getByTestId('net-status')).toHaveTextContent('오프라인 · 대기 0건')
+    // 상태 변경은 즉시지만 화면 반영은 다음 렌더에서 일어날 수 있다
+    await waitFor(() => expect(screen.getByTestId('net-status')).toHaveTextContent('오프라인 · 대기 0건'))
+    expect(engine.status.online).toBe(false)
 
     await completeSurvey(user, '1234')
     const rows = await db.responses.toArray()
