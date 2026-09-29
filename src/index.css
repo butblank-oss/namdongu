@@ -6,7 +6,10 @@
 
 html { font-size: 17px; }
 body { @apply bg-slate-100 text-slate-900 antialiased; }
-button, input, select, textarea { font: inherit; }
+@layer base {
+  /* base 레이어에 둬야 Tailwind 글자 크기 유틸리티가 이긴다 */
+  button, input, select, textarea { font: inherit; }
+}
 :focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
 
 @media print {

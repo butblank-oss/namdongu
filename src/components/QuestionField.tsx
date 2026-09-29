@@ -1,9 +1,12 @@
 import { memo } from 'react'
+import { ETC, etcKey } from '../lib/defaultSchema'
 import type { AnswerValue, Question } from '../lib/types'
 
 interface Props {
   q: Question
   value: AnswerValue | undefined
+  /** '기타' 직접 입력값 */
+  etcValue?: string
   invalid: boolean
   staffNames: string[]
   onChange: (key: string, value: AnswerValue) => void
@@ -26,7 +29,7 @@ function OptionButton({ selected, multi, label, onClick }: { selected: boolean; 
   )
 }
 
-export const QuestionField = memo(function QuestionField({ q, value, invalid, staffNames, onChange }: Props) {
+export const QuestionField = memo(function QuestionField({ q, value, etcValue, invalid, staffNames, onChange }: Props) {
   const id = `q-${q.key}`
   const border = invalid ? 'border-red-600 bg-red-50' : 'border-transparent'
   let control
@@ -35,15 +38,22 @@ export const QuestionField = memo(function QuestionField({ q, value, invalid, st
     const options = q.type === 'staff' ? staffNames : q.options ?? []
     const arr = Array.isArray(value) ? value : value ? [value] : []
     control = (
-      <div role={multi ? 'group' : 'radiogroup'} aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2">
-        {options.map((o) => (
-          <OptionButton key={o} label={o} multi={multi} selected={arr.includes(o)}
-            onClick={() => {
-              if (multi) onChange(q.key, arr.includes(o) ? arr.filter((x) => x !== o) : [...arr, o])
-              else onChange(q.key, o)
-            }} />
-        ))}
-      </div>
+      <>
+        <div role={multi ? 'group' : 'radiogroup'} aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2">
+          {options.map((o) => (
+            <OptionButton key={o} label={o} multi={multi} selected={arr.includes(o)}
+              onClick={() => {
+                if (multi) onChange(q.key, arr.includes(o) ? arr.filter((x) => x !== o) : [...arr, o])
+                else onChange(q.key, o)
+              }} />
+          ))}
+        </div>
+        {arr.includes(ETC) && (
+          <input aria-label={`${q.label} 기타 내용`} value={etcValue ?? ''} autoComplete="off" placeholder="기타 내용을 적어 주세요"
+            onChange={(e) => onChange(etcKey(q.key), e.target.value)}
+            className="mt-2 min-h-12 w-full rounded-lg border-2 border-slate-400 px-3 text-lg" />
+        )}
+      </>
     )
   } else if (q.type === 'textarea') {
     control = (
@@ -65,6 +75,7 @@ export const QuestionField = memo(function QuestionField({ q, value, invalid, st
       <h3 id={`${id}-label`} className="mb-1 text-xl font-bold">
         {q.label}
         {q.required && <span className="ml-1 text-red-700" aria-label="필수">*</span>}
+        {q.type === 'multi' && <span className="ml-2 align-middle text-sm font-semibold text-blue-700">여러 개 선택</span>}
       </h3>
       {q.help && <p className="mb-3 text-base text-slate-600">{q.help}</p>}
       {control}

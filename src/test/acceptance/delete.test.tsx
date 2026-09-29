@@ -10,7 +10,7 @@ test('admin 응답 삭제는 소프트 삭제이고 열람 기록에 delete 가 
   await user.type(screen.getByLabelText('검색'), '1234')
   await user.click((await screen.findAllByTestId('result-row'))[0])
   await user.click(await screen.findByRole('button', { name: '본인 확인 완료' }))
-  await screen.findByTestId('step-indicator')
+  await screen.findByTestId('survey-step')
 
   vi.spyOn(window, 'confirm').mockReturnValue(true)
   await user.click(screen.getByRole('button', { name: '응답 삭제' }))
@@ -32,6 +32,6 @@ test('operator 에게는 응답 삭제 버튼이 없다', async () => {
   await user.type(screen.getByLabelText('검색'), '1234')
   await user.click((await screen.findAllByTestId('result-row'))[0])
   await user.click(await screen.findByRole('button', { name: '본인 확인 완료' }))
-  await screen.findByTestId('step-indicator')
+  await screen.findByTestId('survey-step')
   expect(screen.queryByRole('button', { name: '응답 삭제' })).not.toBeInTheDocument()
 })

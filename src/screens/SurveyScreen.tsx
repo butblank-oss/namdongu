@@ -3,10 +3,10 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useDB, useEngine } from '../app/context'
 import { QuestionField } from '../components/QuestionField'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
-import { RESULT_STATUS } from '../lib/defaultSchema'
+import { etcKey, RESULT_STATUS } from '../lib/defaultSchema'
 import { nowIso } from '../lib/engine'
-import { buildSteps, isVisible, missingRequired } from '../lib/survey'
-import type { AnswerValue, Answers, LocalResponse } from '../lib/types'
+import { buildSections, isVisible, missingRequired } from '../lib/survey'
+import { TRACK_DESC, TRACK_LABEL, type AnswerValue, type Answers, type LocalResponse } from '../lib/types'
 
 const PERSIST_DELAY = 250
 
@@ -17,7 +17,6 @@ function applyAnswers(r: LocalResponse, answers: Answers): LocalResponse {
     ...r,
     answers,
     consent: str(answers.consent),
-    helpers: Array.isArray(answers.helpers) ? answers.helpers : [],
     real_name: str(answers.real_name) ?? r.real_name,
     result: str(answers.result),
   }
@@ -49,21 +48,20 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
     ...(initial.real_name && !initial.answers.real_name ? { real_name: initial.real_name } : {}),
   }))
   const answersRef = useRef(answers)
-  const stepKey = `namdongu.step.${initial.id}`
-  const [stepIdx, setStepIdx] = useState(() => {
-    try { return Number(sessionStorage.getItem(stepKey) ?? 0) || 0 } catch { return 0 }
-  })
   const [errors, setErrors] = useState<string[]>([])
+  const [tried, setTried] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const topRef = useRef<HTMLDivElement>(null)
+  const isEdit = initial.status !== 'in_progress'
 
-  const steps = useMemo(() => buildSteps(engine.schema.payload, initial.track), [engine.schema.payload, initial.track])
-  const idx = Math.min(stepIdx, steps.length - 1)
-  const step = steps[idx]
-  const isLast = idx === steps.length - 1
+  const sections = useMemo(() => buildSections(engine.schema.payload, initial.track, answers),
+    [engine.schema.payload, initial.track, answers])
+  const allQuestions = useMemo(() => sections.flatMap((s) => s.questions), [sections])
   const staffNames = useMemo(() => engine.staff.filter((s) => s.active).map((s) => s.name), [engine.staff])
 
-  useEffect(() => { try { sessionStorage.setItem(stepKey, String(idx)) } catch { /* 무시 */ } }, [stepKey, idx])
+  // 진행률: 보이는 필수 문항 중 답한 수
+  const required = allQuestions.filter((q) => q.type !== 'divider' && q.required && isVisible(q, answers))
+  const missingNow = missingRequired(allQuestions, answers)
+  const doneCount = required.length - missingNow.length
 
   const flush = useCallback(async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
@@ -85,43 +83,27 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
     timer.current = setTimeout(() => void flush(), PERSIST_DELAY)
   }, [flush])
 
-  const validate = useCallback(() => {
-    const missing = missingRequired(step, answersRef.current)
+  const complete = useCallback(async () => {
+    setTried(true)
+    const snapshot = answersRef.current
+    const questions = buildSections(engine.schema.payload, initial.track, snapshot).flatMap((s) => s.questions)
+    const missing = missingRequired(questions, snapshot)
     setErrors(missing)
     if (missing.length) {
       const el = document.querySelector<HTMLElement>(`[data-testid="question-${missing[0]}"]`)
       el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
       el?.querySelector<HTMLElement>('button, input, textarea')?.focus({ preventScroll: true })
+      return
     }
-    return missing.length === 0
-  }, [step])
-
-  const goNext = useCallback(async () => {
-    if (!validate()) return
-    await flush()
-    setStepIdx(idx + 1)
-    topRef.current?.scrollIntoView?.({ block: 'start' })
-  }, [validate, flush, idx])
-
-  const goPrev = useCallback(async () => {
-    await flush()
-    setErrors([])
-    setStepIdx(Math.max(0, idx - 1))
-  }, [flush, idx])
-
-  const complete = useCallback(async () => {
-    if (!validate()) return
-    const snapshot = answersRef.current
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
     const result = typeof snapshot.result === 'string' ? snapshot.result : ''
     await engine.updateResponse(initial.id, (r) => ({
       ...applyAnswers(r, snapshot),
       status: RESULT_STATUS[result] ?? 'done',
-      completed_at: nowIso(),
+      completed_at: r.completed_at && isEdit ? r.completed_at : nowIso(),
     }))
-    try { sessionStorage.removeItem(stepKey) } catch { /* 무시 */ }
     navigate(`/r/${engine.resolveId(initial.id)}/done`)
-  }, [validate, engine, initial.id, navigate, stepKey])
+  }, [engine, initial.id, initial.track, navigate, isEdit])
 
   const remove = useCallback(async () => {
     if (!window.confirm('이 응답을 삭제할까요? 목록에서 사라지고 이 어르신을 새로 응대할 수 있게 됩니다.')) return
@@ -133,65 +115,82 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
 
   const leave = useCallback(async () => {
     await flush()
-    navigate('/')
+    navigate(-1)
   }, [flush, navigate])
 
-  // 키보드: Ctrl+Enter 다음/완료, Alt+← 이전, Alt+→ 다음
+  // 키보드: Ctrl+Enter 응대 완료
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void (isLast ? complete() : goNext()) }
-      else if (e.altKey && e.key === 'ArrowRight' && !isLast) { e.preventDefault(); void goNext() }
-      else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); void goPrev() }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void complete() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [isLast, complete, goNext, goPrev])
+  }, [complete])
 
   const who = initial.manual_info
     ? `${initial.manual_info.name} (${initial.manual_info.phone_last4}) · 명단 외`
     : null
   const participantLabel = useParticipantLabel(initial.participant_id) ?? who
-  const trackGuide = step.id.startsWith(initial.track) && step.id.endsWith('-0') ? engine.schema.payload.guides[initial.track] : null
+  const pct = required.length ? Math.round((doneCount / required.length) * 100) : 100
 
   return (
     <Screen className="pb-32">
-      <div ref={topRef} className="sticky top-[60px] z-30 -mx-6 mb-4 flex items-center gap-3 border-b-2 border-slate-300 bg-slate-100/95 px-6 py-3 backdrop-blur">
-        <Button onClick={() => void leave()}>← 목록으로</Button>
-        <span className="text-xl font-bold">{participantLabel}</span>
-        <Badge tone={TRACK_TONE[initial.track]}>트랙 {initial.track}</Badge>
-        {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
-        {engine.isAdmin && <Button variant="danger" onClick={() => void remove()}>응답 삭제</Button>}
-        <span className="ml-auto text-lg text-slate-600">{step.title}</span>
-        <span className="rounded-lg bg-slate-900 px-4 py-1 text-2xl font-black text-white" data-testid="step-indicator">
-          {idx + 1} / {steps.length}
-        </span>
+      <div className="sticky top-[60px] z-30 -mx-6 mb-4 border-b-2 border-slate-300 bg-slate-100/95 px-6 py-3 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <Button onClick={() => void leave()}>← 뒤로</Button>
+          <span className="text-xl font-bold">{participantLabel}</span>
+          <Badge tone={TRACK_TONE[initial.track]}>{TRACK_LABEL[initial.track]}</Badge>
+          {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
+          {isEdit && <Badge tone="green">완료된 응답 수정 중</Badge>}
+          {engine.isAdmin && <Button variant="danger" onClick={() => void remove()}>응답 삭제</Button>}
+          <span className="ml-auto text-lg font-bold" data-testid="progress-required">필수 {doneCount} / {required.length}</span>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-300" aria-hidden>
+            <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${pct}%` }} />
+          </div>
+          <nav className="flex gap-1" aria-label="섹션 이동">
+            {sections.map((s) => (
+              <button key={s.id} type="button" className="rounded px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+                onClick={() => document.getElementById(`sec-${s.id}`)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })}>
+                {s.title}
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
-      {trackGuide && <p className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-lg">{trackGuide}</p>}
-
-      <div className="space-y-3" data-testid="survey-step">
-        {step.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
-          ? (
-            <div key={q.key} role="separator" className="flex items-center gap-3 pt-4">
-              <hr className="flex-1 border-t-2 border-slate-300" />
-              {q.label && <span className="text-lg font-bold text-slate-600">{q.label}</span>}
-              <hr className="flex-1 border-t-2 border-slate-300" />
-            </div>
-          )
-          : (
-            <QuestionField key={q.key} q={q} value={answers[q.key]} invalid={errors.includes(q.key)}
-              staffNames={staffNames} onChange={onChange} />
-          ))}
+      <div className="space-y-8" data-testid="survey-step">
+        {sections.map((sec) => (
+          <section key={sec.id} id={`sec-${sec.id}`} className="scroll-mt-40 space-y-3" aria-label={sec.title}>
+            <h2 className="flex items-center gap-3 text-2xl font-extrabold text-slate-800">
+              {sec.title}
+              {sec.id === 'track' && <span className="text-base font-semibold text-slate-600">{TRACK_DESC[initial.track]}</span>}
+            </h2>
+            {sec.id === 'track' && engine.schema.payload.guides[initial.track] && (
+              <p className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-lg">{engine.schema.payload.guides[initial.track]}</p>
+            )}
+            {sec.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
+              ? <hr key={q.key} className="border-t-2 border-slate-300" />
+              : (
+                <QuestionField key={q.key} q={q} value={answers[q.key]} etcValue={answers[etcKey(q.key)] as string | undefined}
+                  invalid={errors.includes(q.key)} staffNames={staffNames} onChange={onChange} />
+              ))}
+          </section>
+        ))}
+        {answers.consent === '미동의' && (
+          <p className="rounded-xl bg-amber-100 p-4 text-lg">개인정보 미동의라 설문 문항은 생략합니다. 응대 결과만 남겨 주세요.</p>
+        )}
       </div>
 
       <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-300 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
-          <Button size="lg" onClick={() => void goPrev()} disabled={idx === 0}>이전</Button>
-          {errors.length > 0 && <span className="font-bold text-red-700" role="status">필수 문항 {errors.length}개가 비어 있습니다</span>}
-          <span className="ml-auto hidden text-sm text-slate-500 lg:inline">Ctrl+Enter {isLast ? '완료' : '다음'} · Alt+← 이전</span>
-          {isLast
-            ? <Button size="lg" variant="success" onClick={() => void complete()}>응대 완료</Button>
-            : <Button size="lg" variant="primary" onClick={() => void goNext()}>다음</Button>}
+          {tried && errors.length > 0
+            ? <span className="font-bold text-red-700" role="status">필수 문항 {errors.length}개가 비어 있습니다</span>
+            : <span className="text-base text-slate-600">입력은 자동 저장됩니다 · Ctrl+Enter 응대 완료</span>}
+          <Button size="lg" variant="success" className="ml-auto" onClick={() => void complete()}>
+            {isEdit ? '수정 완료' : '응대 완료'}
+          </Button>
         </div>
       </div>
     </Screen>

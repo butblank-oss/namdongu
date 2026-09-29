@@ -5,6 +5,8 @@ import { TopBar } from '../components/TopBar'
 import { Button, Screen } from '../components/ui'
 import type { Engine } from '../lib/engine'
 import { AdminScreen } from '../screens/AdminScreen'
+import { DashboardScreen } from '../screens/DashboardScreen'
+import { ResponseListScreen } from '../screens/ResponseListScreen'
 import { DoneScreen } from '../screens/DoneScreen'
 import { ManualAddScreen } from '../screens/ManualAddScreen'
 import { PrintCardsScreen } from '../screens/PrintCardsScreen'
@@ -43,6 +45,8 @@ function Shell() {
         <Route path="/manual" element={<ManualAddScreen />} />
         <Route path="/admin" element={<AdminScreen />} />
         <Route path="/print" element={<PrintCardsScreen />} />
+        <Route path="/list" element={<ResponseListScreen />} />
+        <Route path="/dashboard" element={<DashboardScreen />} />
         <Route path="*" element={<SearchScreen />} />
       </Routes>
     </>
