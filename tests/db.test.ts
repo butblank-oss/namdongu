@@ -129,3 +129,28 @@ describe('survey_schema', () => {
     expect(ok.affectedRows).toBe(1)
   })
 })
+
+describe('4기 신청자 연락처 (participant_contacts, preorder4_applicants)', () => {
+  it('신청 응답만 전체 번호와 함께 모인다 (service)', async () => {
+    await asService(db, `insert into participant_contacts (participant_id, mobile) values ($1,'010-1111-8800')`, [P1])
+    await asService(db, `update responses set deleted_at=now() where participant_id=$1 and deleted_at is null`, [P1])
+    await asService(db, `insert into responses (participant_id, track, answers, entered_by)
+      values ($1,'A','{"preorder_4":"신청","contact_pref":["문자","전화"]}','김소리')`, [P1])
+    await asService(db, `insert into responses (manual_info, track, answers)
+      values ('{"name":"명단외","phone_last4":"5555"}','C','{"preorder_4":"신청"}'),
+             ('{"name":"미신청","phone_last4":"6666"}','C','{"preorder_4":"보류"}')`)
+    const r = await asService(db, `select 이름, 휴대폰, 뒷4자리, 대상, 안내_방법, 구분, 입력자, 참여자_id from preorder4_applicants`)
+    expect(r.rows).toEqual([
+      { 이름: '간*자', 휴대폰: '010-1111-8800', 뒷4자리: '8800', 대상: '활동 중', 안내_방법: '문자, 전화', 구분: '명단', 입력자: '김소리', 참여자_id: P1 },
+      { 이름: '명단외', 휴대폰: null, 뒷4자리: '5555', 대상: '거의 미사용', 안내_방법: null, 구분: '명단 외', 입력자: null, 참여자_id: null },
+    ])
+  })
+  it('anon(공개 앱)은 번호와 신청자 표를 읽거나 쓸 수 없다', async () => {
+    await rejects(asAnon(db, `select * from participant_contacts`))
+    await rejects(asAnon(db, `select * from preorder4_applicants`))
+    await rejects(asAnon(db, `insert into participant_contacts (participant_id, mobile) values ($1,'010-2222-1234')`, [P2]))
+  })
+  it('번호 형식이 아니면 거부', async () => {
+    await rejects(asService(db, `insert into participant_contacts (participant_id, mobile) values ($1,'1234')`, [P2]))
+  })
+})

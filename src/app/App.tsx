@@ -5,6 +5,7 @@ import { TopBar } from '../components/TopBar'
 import { PageTitle, Screen } from '../components/ui'
 import type { Engine } from '../lib/engine'
 import { AdminScreen } from '../screens/AdminScreen'
+import { ApplicantsScreen } from '../screens/ApplicantsScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
 import { ResponseListScreen } from '../screens/ResponseListScreen'
 import { DoneScreen } from '../screens/DoneScreen'
@@ -47,6 +48,7 @@ function Shell() {
         <Route path="/print" element={<PrintCardsScreen />} />
         <Route path="/list" element={<ResponseListScreen />} />
         <Route path="/dashboard" element={<DashboardScreen />} />
+        <Route path="/applicants" element={<ApplicantsScreen />} />
         <Route path="*" element={<SearchScreen />} />
       </Routes>
     </>
