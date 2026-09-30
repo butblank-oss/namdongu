@@ -85,7 +85,7 @@ export function TopBar() {
           맬리브레인 현장
         </Link>
         <nav className="flex gap-1" aria-label="메뉴">
-          {([['/', '응대하기'], ['/list', '응답 목록'], ['/dashboard', '대시보드']] as const).map(([to, label]) => (
+          {([['/', '응대하기'], ['/list', '응답 목록'], ['/dashboard', '대시보드'], ['/applicants', '4기 신청자']] as const).map(([to, label]) => (
             <NavLink key={to} to={to} end
               className={({ isActive }) => `inline-flex min-h-10 items-center rounded-xl px-3.5 text-[16px] font-semibold transition-colors ${isActive ? 'bg-grey-100 text-grey-900' : 'text-grey-500 hover:text-grey-800'}`}>
               {label}
