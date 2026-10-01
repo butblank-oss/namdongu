@@ -108,6 +108,7 @@ export function TopBar() {
           <details className="relative">
             <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-xl bg-grey-100 px-3.5 text-[15px] font-semibold text-grey-700 hover:bg-grey-200">더보기 <span aria-hidden className="text-grey-400">▾</span></summary>
             <div className="absolute right-0 z-50 mt-2 flex w-52 flex-col rounded-2xl bg-white p-2 shadow-[var(--shadow-pop)]">
+              <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; navigate('/print-survey') }}>인쇄용 설문지</Button>
               <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; navigate('/print') }}>게임 카드 인쇄</Button>
               <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; void exportCsv() }}>응답 내보내기</Button>
             </div>

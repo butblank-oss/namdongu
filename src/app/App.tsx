@@ -11,6 +11,7 @@ import { ResponseListScreen } from '../screens/ResponseListScreen'
 import { DoneScreen } from '../screens/DoneScreen'
 import { ManualAddScreen } from '../screens/ManualAddScreen'
 import { PrintCardsScreen } from '../screens/PrintCardsScreen'
+import { PrintSurveyScreen } from '../screens/PrintSurveyScreen'
 import { SearchScreen } from '../screens/SearchScreen'
 import { GuardedSurvey } from '../screens/SurveyScreen'
 import { VerifyScreen } from '../screens/VerifyScreen'
@@ -46,6 +47,7 @@ function Shell() {
         <Route path="/manual" element={<ManualAddScreen />} />
         <Route path="/admin" element={<AdminScreen />} />
         <Route path="/print" element={<PrintCardsScreen />} />
+        <Route path="/print-survey" element={<PrintSurveyScreen />} />
         <Route path="/list" element={<ResponseListScreen />} />
         <Route path="/dashboard" element={<DashboardScreen />} />
         <Route path="/applicants" element={<ApplicantsScreen />} />
