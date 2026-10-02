@@ -20,7 +20,8 @@ if (!csvPath) {
 const rows = parseCsv(readFileSync(csvPath, 'utf8')).map((r) => ({
   name: (r.name ?? r['이름'] ?? '').trim(),
   email: (r.email ?? r['이메일'] ?? '').trim().toLowerCase(),
-  phone: (r.phone ?? r['휴대폰'] ?? r['전화번호'] ?? '').replace(/\D/g, ''),
+  // 엑셀이 01012345678 을 숫자로 바꿔 앞의 0 을 지우는 경우를 되살린다
+  phone: (r.phone ?? r['휴대폰'] ?? r['전화번호'] ?? '').replace(/\D/g, '').replace(/^(1\d{8,9})$/, '0$1'),
 }))
 
 const problems: string[] = []
