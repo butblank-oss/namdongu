@@ -16,7 +16,7 @@ const reset = args.includes('--reset')
 const addMissing = args.includes('--add-missing')
 const [csvPath] = args.filter((a) => !a.startsWith('--'))
 if (!csvPath) {
-  console.error('사용: create-staff-accounts.mts <staff.csv> [--dry-run] [--reset]')
+  console.error('사용: create-staff-accounts.mts <staff.csv> [--dry-run] [--reset] [--add-missing]')
   process.exit(1)
 }
 
