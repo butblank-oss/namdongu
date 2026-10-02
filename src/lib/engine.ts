@@ -97,13 +97,27 @@ export class Engine {
   private emit() { this.version++; for (const l of this.listeners) l() }
   private setStatus(p: Partial<SyncStatus>) { this.status = { ...this.status, ...p }; this.emit() }
 
+  /** 로그인 계정으로 정해진 입력자 (바꿀 수 없음). 데모·테스트에서는 false */
+  identityLocked = false
+  /** 로그인 화면이 넣어 주는 로그아웃 */
+  logout: (() => void) | null = null
+
+  /** 로그인한 담당자로 입력자를 고정한다 */
+  lockIdentity(name: string, logout: () => void) {
+    this.identityLocked = false
+    this.setMe(name)
+    this.identityLocked = true
+    this.logout = logout
+  }
+
   setMe(name: string) {
+    if (this.identityLocked) return
     this.me = name
     safeLocal()?.setItem(ME_KEY, name)
     this.emit()
   }
 
-  /** 로그인 없이 쓰므로 admin 여부는 고른 이름의 staff.role 로만 판단한다 (화면 제어용) */
+  /** 화면 제어용 admin 여부 (실제 권한은 DB 의 is_admin() 이 막는다) */
   get isAdmin(): boolean {
     const s = this.staff.find((x) => x.name === this.me)
     return s?.role === 'admin' && s.active

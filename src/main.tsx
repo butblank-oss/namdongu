@@ -2,14 +2,16 @@ import { StrictMode, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './app/App'
+import { AuthGate } from './app/AuthGate'
+import { supabaseAuth } from './lib/auth'
 import { Button, Screen } from './components/ui'
 import { Engine } from './lib/engine'
 import { SupabaseRemote, supabaseConfigured } from './lib/supabaseRemote'
 
-// 로그인 없음: 페이지를 열면 담당자가 자기 이름을 골라 바로 쓴다 (2026-09-29 운영 결정)
+// 담당자 로그인 필수 (2026-10-02 개발팀 검토): 로그인 → 첫 로그인이면 새 비밀번호 → 앱
 function Live() {
-  const engine = useMemo(() => new Engine(new SupabaseRemote()), [])
-  return <App engine={engine} />
+  const auth = useMemo(() => supabaseAuth(), [])
+  return <AuthGate auth={auth} makeEngine={() => new Engine(new SupabaseRemote())} />
 }
 
 function Demo() {
