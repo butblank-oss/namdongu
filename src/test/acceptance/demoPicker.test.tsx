@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { makeDevice, makeServer, renderApp } from '../helpers'
 
-test('로그인 없이 페이지를 열면 담당자 이름을 골라 바로 시작한다', async () => {
+test('데모(가짜 데이터) 모드에서는 담당자 이름을 골라 바로 시작한다', async () => {
   const server = makeServer()
   const { engine } = makeDevice(server, { name: '김다희', role: 'operator' })
   try { localStorage.removeItem('namdongu.me') } catch { /* 무시 */ }

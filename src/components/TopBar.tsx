@@ -92,15 +92,22 @@ export function TopBar() {
             </NavLink>
           ))}
         </nav>
-        <label className="ml-2 flex items-center gap-2">
-          <span className="text-[14px] text-grey-500">입력자</span>
-          <select aria-label="입력자" value={engine.me ?? ''} onChange={(e) => engine.setMe(e.target.value)}
-            className="min-h-10 rounded-xl bg-grey-100 px-3 text-[15px] font-semibold text-grey-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {!engine.me && <option value="">선택</option>}
-            {active.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
-            {engine.me && !active.some((s) => s.name === engine.me) && <option value={engine.me}>{engine.me}</option>}
-          </select>
-        </label>
+        {engine.identityLocked ? (
+          <span className="ml-2 flex items-center gap-2" data-testid="signed-in-as">
+            <span className="text-[14px] text-grey-500">입력자</span>
+            <span className="text-[15px] font-semibold text-grey-900">{engine.me}</span>
+          </span>
+        ) : (
+          <label className="ml-2 flex items-center gap-2">
+            <span className="text-[14px] text-grey-500">입력자</span>
+            <select aria-label="입력자" value={engine.me ?? ''} onChange={(e) => engine.setMe(e.target.value)}
+              className="min-h-10 rounded-xl bg-grey-100 px-3 text-[15px] font-semibold text-grey-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {!engine.me && <option value="">선택</option>}
+              {active.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {engine.me && !active.some((s) => s.name === engine.me) && <option value={engine.me}>{engine.me}</option>}
+            </select>
+          </label>
+        )}
         <NetworkStatus />
         <Progress />
         <div className="ml-auto flex items-center gap-2">
@@ -111,6 +118,9 @@ export function TopBar() {
               <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; navigate('/print-survey') }}>인쇄용 설문지</Button>
               <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; navigate('/print') }}>게임 카드 인쇄</Button>
               <Button variant="ghost" className="justify-start" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; void exportCsv() }}>응답 내보내기</Button>
+              {engine.logout && (
+                <Button variant="ghost" className="justify-start text-red-500" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; engine.logout?.() }}>로그아웃</Button>
+              )}
             </div>
           </details>
         </div>
