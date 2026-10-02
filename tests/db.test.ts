@@ -154,3 +154,17 @@ describe('4기 신청자 연락처 (participant_contacts, preorder4_applicants)'
     await rejects(asService(db, `insert into participant_contacts (participant_id, mobile) values ($1,'1234')`, [P2]))
   })
 })
+
+describe('4기 동의 칸 (preorder4_applicants)', () => {
+  it('4기 개인정보 동의를 받은 신청만 등록 가능으로 표시', async () => {
+    await asService(db, `insert into responses (manual_info, track, answers)
+      values ('{"name":"동의함","phone_last4":"7001"}','A','{"preorder_4":"신청","p4_privacy":"동의","p4_sms":"미동의"}'),
+             ('{"name":"안함","phone_last4":"7002"}','A','{"preorder_4":"신청","p4_privacy":"미동의"}')`)
+    const r = await asService(db, `select 이름, "4기_등록_가능", "4기_개인정보_동의", 문자_수신_동의 from preorder4_applicants where 이름 in ('동의함','안함') order by 이름`)
+    expect(r.rows).toEqual([
+      { 이름: '동의함', '4기_등록_가능': true, '4기_개인정보_동의': '동의', 문자_수신_동의: '미동의' },
+      { 이름: '안함', '4기_등록_가능': false, '4기_개인정보_동의': '미동의', 문자_수신_동의: null },
+    ])
+    await rejects(asAnon(db, `select * from preorder4_applicants`))
+  })
+})
