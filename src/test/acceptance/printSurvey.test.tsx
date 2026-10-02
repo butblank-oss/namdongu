@@ -54,3 +54,13 @@ test('4기 동의 문항은 고지문과 함께 인쇄되고, 신청한 분만 �
   expect(a).toHaveTextContent('[선택] 4기 소식을 문자로 받는 데 동의하십니까?')
   expect(a).toHaveTextContent('‘4기 사전신청’ [신청] 고르신 분만 답해 주세요')
 })
+
+test('성함·전화번호는 밑줄 칸 두 개 (전화번호 전체를 적는다)', async () => {
+  await setup()
+  const a = (await screen.findAllByTestId('paper'))[0]
+  const np = within(a).getByTestId('name-phone')
+  expect(np).toHaveTextContent('성함')
+  expect(np).toHaveTextContent('전화번호')
+  expect(np).not.toHaveTextContent('뒷 4자리')
+  expect(within(a).getAllByTestId('sheet').length).toBeGreaterThan(0)
+})
