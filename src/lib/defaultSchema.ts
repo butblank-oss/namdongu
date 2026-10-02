@@ -1,4 +1,4 @@
-import type { SurveyPayload } from './types'
+import type { Question, SurveyPayload } from './types'
 
 export const DEFAULT_GAMES = [
   '기억의 숨바꼭질', '오늘의 장바구니', '숨은 헬씨 찾기', '꿀벌의 숫자놀이', '초성 퀴즈',
@@ -8,7 +8,7 @@ export const DEFAULT_GAMES = [
 ]
 
 /** 응답 테이블 컬럼과 연결되는 예약 key. 어드민에서 key 변경·삭제 불가 */
-export const RESERVED_KEYS = ['consent', 'real_name', 'result', 'c_checklist'] as const
+export const RESERVED_KEYS = ['consent', 'real_name', 'result', 'c_checklist', 'preorder_4', 'p4_privacy', 'p4_sms'] as const
 export const FIRST_GAME_KEY = 'c_checklist'
 export const FIRST_GAME_OPTION = '첫 게임 실행'
 
@@ -22,6 +22,36 @@ export const RESULT_STATUS: Record<string, 'done' | 'refused' | 'revisit'> = {
 
 /** 보기 목록 끝에 붙이는 '기타'. 고르면 옆에 직접 입력칸이 열리고 answers[`${key}__etc`] 에 저장된다 */
 export const ETC = '기타'
+
+/**
+ * 4기 사전신청 동의 (2026-10-02 운영 결정: 4기 명단은 원메딕스가 직접 사용 → 제3자 제공 아님).
+ * '신청'을 고른 분에게만 보인다. 4기 등록 명단은 p4_privacy = '동의'인 분만, 문자는 p4_sms = '동의'인 분에게만.
+ */
+export const P4_CONSENT_QUESTIONS: Question[] = [
+  {
+    key: 'p4_privacy', type: 'single', label: '[필수] 4기 참여를 위한 개인정보 수집·이용에 동의하십니까?', required: true,
+    options: ['동의', '미동의'],
+    showIf: { key: 'preorder_4', in: ['신청'] },
+    notice: [
+      '원메딕스는 맬리브레인 4기 참여 등록과 안내를 위해 아래와 같이 개인정보를 수집·이용합니다.',
+      '· 목적: 맬리브레인 4기 참여 등록 및 프로그램 안내',
+      '· 항목: 성함, 휴대폰 번호, 맬리브레인 회원 정보',
+      '· 보유 기간: 4기 프로그램 종료 시까지 (동의를 철회하시면 바로 파기)',
+      '· 동의하지 않으실 수 있으며, 동의하지 않으시면 4기 사전신청이 어렵습니다.',
+    ].join('\n'),
+  },
+  {
+    key: 'p4_sms', type: 'single', label: '[선택] 4기 소식을 문자로 받는 데 동의하십니까?', required: true,
+    options: ['동의', '미동의'],
+    showIf: { key: 'preorder_4', in: ['신청'] },
+    notice: [
+      '· 목적: 4기 모집·일정·행사 안내 문자 발송',
+      '· 항목: 휴대폰 번호',
+      '· 보유 기간: 4기 프로그램 종료 시 또는 수신 거부 시까지',
+      '· 동의하지 않으셔도 4기 신청에는 영향이 없습니다.',
+    ].join('\n'),
+  },
+]
 export const etcKey = (key: string) => `${key}__etc`
 
 const LIKES = ['게임이 재미있음', '기억력·집중력에 도움', '매일 할 거리가 생김', '운동 영상', '마음 챙김(명상)', '랭킹·트로피', '보건소와 연결된 느낌', ETC]
@@ -121,6 +151,7 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
         key: 'preorder_4', type: 'single', label: '4기 사전신청', required: true,
         options: ['신청', '미신청', '보류'],
       },
+      ...P4_CONSENT_QUESTIONS,
       {
         key: 'contact_pref', type: 'multi', label: '앞으로 안내받고 싶은 방법',
         options: ['문자', '전화', '카카오톡', '보건소 방문', '가족을 통해'],

@@ -41,5 +41,16 @@ test('용지 고르기와 직원 문항 바꾸기', async () => {
   await user.click(screen.getByRole('button', { name: '4기 사전신청' }))
   const a = screen.getAllByTestId('paper')[0]
   expect(within(a).getAllByTestId('paper-question').length).toBe(before)
-  expect(a.textContent!.indexOf('4기 사전신청')).toBeGreaterThan(a.textContent!.indexOf('직원 기입란'))
+  const target = within(a).getAllByTestId('paper-question')
+    .find((el) => el.querySelector('p')?.textContent?.replace(/^\d+\.\s*/, '').startsWith('4기 사전신청'))
+  expect(target?.closest('.border-dashed')).not.toBeNull() // 직원 기입란 안에 있다
+})
+
+test('4기 동의 문항은 고지문과 함께 인쇄되고, 신청한 분만 답하도록 안내한다', async () => {
+  await setup()
+  const a = (await screen.findAllByTestId('paper'))[0]
+  expect(a).toHaveTextContent('[필수] 4기 참여를 위한 개인정보 수집·이용에 동의하십니까?')
+  expect(a).toHaveTextContent('보유 기간: 4기 프로그램 종료 시까지')
+  expect(a).toHaveTextContent('[선택] 4기 소식을 문자로 받는 데 동의하십니까?')
+  expect(a).toHaveTextContent('‘4기 사전신청’ [신청] 고르신 분만 답해 주세요')
 })

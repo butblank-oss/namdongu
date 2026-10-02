@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEngine, useParticipants, useResponses } from '../app/context'
 import { Badge, Button, Card, PageTitle, Screen, TRACK_TONE } from '../components/ui'
-import { buildApplicantsCsv, downloadText, isPreorder4, stamp } from '../lib/exportCsv'
+import { buildApplicantsCsv, canRegister4, downloadText, isPreorder4, stamp } from '../lib/exportCsv'
 import { TRACK_LABEL, type LocalResponse, type Participant } from '../lib/types'
 
 function when(iso: string | null): string {
@@ -25,6 +25,9 @@ export function ApplicantsScreen() {
 
   const nameOf = (r: LocalResponse) => (r.participant_id ? pMap.get(r.participant_id)?.name_masked : undefined) ?? r.manual_info?.name ?? ''
   const last4Of = (r: LocalResponse) => (r.participant_id ? pMap.get(r.participant_id)?.phone_last4 : undefined) ?? r.manual_info?.phone_last4 ?? ''
+  const ready = rows.filter(canRegister4).length
+  const consentBadge = (v: string | string[] | undefined, required: boolean) =>
+    v === '동의' ? <Badge tone="green">동의</Badge> : v === '미동의' ? <Badge tone={required ? 'red' : 'grey'}>미동의</Badge> : <Badge tone="orange">미확인</Badge>
   const pref = (r: LocalResponse) => { const v = r.answers.contact_pref; return Array.isArray(v) ? v.join(', ') : (v ?? '') }
 
   const open = (r: LocalResponse) => { engine.passedGate.add(r.id); navigate(`/r/${r.id}`) }
@@ -38,10 +41,12 @@ export function ApplicantsScreen() {
       <PageTitle sub="설문 마무리에서 '4기 사전신청 → 신청'을 고른 분이 자동으로 모입니다."
         right={<Button variant="primary" onClick={exportCsv} disabled={rows.length === 0}>명단 내려받기</Button>}>
         4기 신청자 <span className="ml-1 text-[19px] font-medium text-grey-500" data-testid="applicant-count">{rows.length}명</span>
+        <span className="ml-2 text-[17px] font-medium text-green-600" data-testid="applicant-ready">등록 가능 {ready}명</span>
       </PageTitle>
 
       <Card className="mb-6 bg-blue-50 p-5 text-[15px] leading-relaxed text-grey-700 shadow-none">
         <b className="text-grey-900">전체 휴대폰 번호는 이 화면에 나오지 않습니다.</b> 주소만 알면 누구나 여는 페이지라서 번호는 숨겨 두었습니다.
+        <br /><b className="text-grey-900">4기에는 ‘4기 개인정보 동의’를 받은 분만</b> 넣고, 문자는 ‘문자 수신 동의’한 분에게만 보냅니다.
         <br />4기 등록이나 문자 안내에 쓸 번호가 붙은 명단은 관리자가 Supabase → Table Editor → <b>preorder4_applicants</b>에서 내려받습니다.
       </Card>
 
@@ -52,7 +57,7 @@ export function ApplicantsScreen() {
           <table className="w-full border-collapse text-left text-[16px]">
             <thead>
               <tr className="text-[14px] font-medium text-grey-500">
-                {['응답 시각', '이름', '뒷4자리', '대상', '안내 방법', '입력자'].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
+                {['응답 시각', '이름', '뒷4자리', '4기 개인정보', '문자 수신', '대상', '안내 방법', '입력자'].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-grey-100">
@@ -63,6 +68,8 @@ export function ApplicantsScreen() {
                   <td className="tabular px-4 py-4 text-grey-500">{when(r.completed_at ?? r.updated_at)}</td>
                   <td className="px-4 py-4">{nameOf(r)} {!r.participant_id && <Badge tone="grey">명단 외</Badge>}</td>
                   <td className="tabular px-4 py-4 text-grey-500">{last4Of(r)}</td>
+                  <td className="px-4 py-4">{consentBadge(r.answers.p4_privacy, true)}</td>
+                  <td className="px-4 py-4">{consentBadge(r.answers.p4_sms, false)}</td>
                   <td className="px-4 py-4"><Badge tone={TRACK_TONE[r.track]}>{TRACK_LABEL[r.track]}</Badge></td>
                   <td className="px-4 py-4">{pref(r)}</td>
                   <td className="px-4 py-4">{r.entered_by ?? ''}</td>

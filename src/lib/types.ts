@@ -117,6 +117,8 @@ export interface Question {
   required?: boolean
   options?: string[]
   showIf?: ShowIf
+  /** 동의 문항의 법정 고지문 (목적·항목·보유 기간·거부권). 앱 화면과 인쇄 용지 모두에 그대로 보인다 */
+  notice?: string
   /** 게임 카드 인쇄에 쓰는 게임 목록 문항 */
   gameList?: boolean
 }

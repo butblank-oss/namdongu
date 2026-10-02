@@ -70,18 +70,23 @@ export function isPreorder4(r: ResponseRow): boolean {
   return !r.deleted_at && r.answers.preorder_4 === '신청'
 }
 
+/** 4기에 실제로 넣을 수 있는 신청 (필수 동의까지 받은 경우) */
+export function canRegister4(r: ResponseRow): boolean {
+  return isPreorder4(r) && r.answers.p4_privacy === '동의'
+}
+
 /**
  * 4기 신청자 명단 CSV. 공개 앱이라 전체 휴대폰 번호는 넣지 않는다
  * (번호가 붙은 명단은 Supabase → preorder4_applicants 에서 내려받는다).
  */
 export function buildApplicantsCsv(responses: ResponseRow[], participants: Map<string, Participant>): string {
   const TRACK: Record<string, string> = { A: '활동 중', B: '쉬는 중', C: '거의 미사용' }
-  const header = ['이름', '뒷4자리', '대상', '안내 방법', '구분', '개인정보 동의', '입력자', '응답 시각', '응답ID', '참여자ID']
+  const header = ['이름', '4기 등록 가능', '4기 개인정보 동의', '문자 수신 동의', '뒷4자리', '대상', '안내 방법', '구분', '설문 개인정보 동의', '입력자', '응답 시각', '응답ID', '참여자ID']
   const rows = responses.filter(isPreorder4).map((r) => {
     const p = r.participant_id ? participants.get(r.participant_id) : undefined
     const m = r.manual_info
     return [
-      p?.full_name ?? p?.name_masked ?? m?.name, p?.phone_last4 ?? m?.phone_last4, TRACK[r.track] ?? r.track,
+      p?.full_name ?? p?.name_masked ?? m?.name, canRegister4(r) ? 'O' : 'X', r.answers.p4_privacy, r.answers.p4_sms, p?.phone_last4 ?? m?.phone_last4, TRACK[r.track] ?? r.track,
       r.answers.contact_pref, m ? '명단 외' : '명단', r.consent, r.entered_by, r.completed_at ?? r.updated_at, r.id, r.participant_id,
     ].map(cell).join(',')
   })

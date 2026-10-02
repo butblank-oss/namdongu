@@ -29,6 +29,7 @@ function fromDraft(d: Draft): SurveyPayload {
       const { _uid: _u, _orig: _o, ...rest } = q
       const out: Question = { ...rest }
       if (!out.help) delete out.help
+      if (!out.notice?.trim()) delete out.notice
       if (!out.required) delete out.required
       if (!out.gameList) delete out.gameList
       if (!['single', 'multi'].includes(out.type)) delete out.options
@@ -242,8 +243,13 @@ function SchemaEditor({ mode }: { mode: 'questions' | 'guides' }) {
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <input aria-label="문구" value={q.label} onChange={(e) => patch(q._uid, { label: e.target.value })} placeholder="문구"
                         className={inputCls} />
-                      <input aria-label="도움말" value={q.help ?? ''} onChange={(e) => patch(q._uid, { help: e.target.value })} placeholder="도움말"
+                      <input aria-label="도움말" value={q.help ?? ''} onChange={(e) => patch(q._uid, { help: e.target.value })} placeholder="도움말 (직원용 · 인쇄 안 됨)"
                         className={inputCls} />
+                      <label className="col-span-2">
+                        <span className="text-[14px] text-grey-500">고지문 (동의 문항용 · 앱과 인쇄 용지에 그대로 보임)</span>
+                        <textarea aria-label="고지문" rows={q.notice ? 4 : 1} value={q.notice ?? ''} onChange={(e) => patch(q._uid, { notice: e.target.value })}
+                          placeholder="목적 · 수집 항목 · 보유 기간 · 거부할 권리와 불이익" className={`${inputCls} mt-1 py-2`} />
+                      </label>
                       {(q.type === 'single' || q.type === 'multi') && (
                         <label className="col-span-1">
                           <span className="text-[14px] text-grey-500">보기 (한 줄에 하나)</span>

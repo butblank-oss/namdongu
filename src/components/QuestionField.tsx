@@ -90,6 +90,9 @@ export const QuestionField = memo(function QuestionField({ q, value, etcValue, i
         {q.type === 'multi' && <span className="rounded-md bg-grey-100 px-2 py-0.5 text-[13px] font-semibold text-grey-600">여러 개 선택</span>}
       </h3>
       {q.help && <p className="mt-1 text-[15px] leading-relaxed text-grey-500">{q.help}</p>}
+      {q.notice && (
+        <p data-testid={`notice-${q.key}`} className="mt-3 whitespace-pre-line rounded-2xl bg-grey-50 px-4 py-3 text-[15px] leading-relaxed text-grey-700">{q.notice}</p>
+      )}
       <div className="mt-4">{control}</div>
       {invalid && <p className="mt-3 text-[15px] font-semibold text-red-500" role="alert">필수 문항입니다</p>}
     </section>

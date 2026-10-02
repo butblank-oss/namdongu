@@ -34,7 +34,7 @@ export function printQuestions(payload: SurveyPayload, track: Track): Question[]
 function conditionNote(q: Question, all: Question[]): string | null {
   if (!q.showIf) return null
   const parent = all.find((x) => x.key === q.showIf!.key)
-  return `${parent ? `‘${parent.label}’에서 ` : ''}${q.showIf.in.join(' · ')}를 고르신 분만`
+  return `${parent ? `‘${parent.label}’ ` : ''}[${q.showIf.in.join(' · ')}] 고르신 분만 답해 주세요`
 }
 
 function Box({ round }: { round?: boolean }) {
@@ -51,9 +51,17 @@ function PaperQuestion({ q, no, all, staff, staffNames }: { q: Question; no: num
   const multi = q.type !== 'single'
   const cols = options.length > 10 ? 3 : options.reduce((m, o) => Math.max(m, o.length), 0) > 12 ? 2 : 3
   const note = conditionNote(q, all)
+  if (staff && options.length === 0) {
+    return (
+      <div data-testid="paper-question" className="flex items-end gap-[2mm] font-bold text-black" style={{ breakInside: 'avoid', marginBottom: '2mm', fontSize: '11pt' }}>
+        <span className="shrink-0">{q.label}</span>
+        <span className="flex-1 border-b border-black/60" style={{ height: '7mm' }} />
+      </div>
+    )
+  }
   return (
-    <div data-testid="paper-question" style={{ breakInside: 'avoid', marginBottom: staff ? '2.5mm' : '4.5mm' }}>
-      <p className="font-bold leading-snug text-black" style={{ fontSize: staff ? '11pt' : '14pt' }}>
+    <div data-testid="paper-question" style={{ breakInside: 'avoid', marginBottom: staff ? '2mm' : '3.5mm' }}>
+      <p className="font-bold leading-snug text-black" style={{ fontSize: staff ? '11pt' : '13.5pt' }}>
         {!staff && <span className="mr-[2mm]">{no}.</span>}{q.label}
         {(q.type === 'single' || q.type === 'multi') && !staff && (
           <span className="ml-[2mm] font-medium text-black/60" style={{ fontSize: '11pt' }}>
@@ -62,12 +70,15 @@ function PaperQuestion({ q, no, all, staff, staffNames }: { q: Question; no: num
         )}
       </p>
       {note && <p className="mt-[1mm] text-black/60" style={{ fontSize: '10.5pt' }}>※ {note}</p>}
+      {q.notice && (
+        <p className="mt-[2mm] whitespace-pre-line rounded-[1.5mm] border border-black/40 px-[3mm] py-[2mm] leading-snug text-black/80" style={{ fontSize: '9.5pt' }}>{q.notice}</p>
+      )}
       {options.length > 0 && staff ? (
         <div className="mt-[1.5mm] flex flex-wrap gap-x-[5mm] gap-y-[1.5mm]" style={{ fontSize: '10pt' }}>
           {options.map((o) => <span key={o} className="flex items-center gap-[1.5mm]"><Box round={!multi} />{o}</span>)}
         </div>
       ) : options.length > 0 ? (
-        <div className="mt-[2mm] grid gap-x-[4mm] gap-y-[2mm]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, fontSize: staff ? '10.5pt' : '13pt' }}>
+        <div className="mt-[1.5mm] grid gap-x-[4mm] gap-y-[1.5mm]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, fontSize: staff ? '10.5pt' : '12.5pt' }}>
           {options.map((o) => (
             <div key={o} className="flex items-center gap-[2mm] text-black" style={o === ETC ? { gridColumn: `span ${Math.min(cols, 2)}` } : undefined}>
               <Box round={!multi} />
@@ -90,11 +101,11 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
   const accent = ACCENT[track]
   return (
     <section data-testid="paper" data-track={track} className="paper mx-auto bg-white text-black"
-      style={{ width: '210mm', boxSizing: 'border-box', padding: '12mm 13mm', breakAfter: 'page', fontFamily: 'inherit' }}>
+      style={{ width: '210mm', boxSizing: 'border-box', padding: '12mm 13mm', fontFamily: 'inherit' }}>
       <header className="flex items-stretch gap-[4mm] pb-[4mm]" style={{ borderBottom: `2.5mm solid ${accent}` }}>
         <div className="flex-1">
           <p className="font-semibold text-black/60" style={{ fontSize: '11pt' }}>맬리브레인 3기 · 남동구 치매안심센터</p>
-          <h2 className="font-extrabold leading-tight" style={{ fontSize: '22pt' }}>맬리브레인 이용 설문</h2>
+          <h2 className="font-extrabold leading-tight" style={{ fontSize: '20pt' }}>맬리브레인 이용 설문</h2>
           <p className="mt-[1mm]" style={{ fontSize: '12pt' }}>해당하는 곳에 <b>✓ 표시</b>해 주세요. 어려운 문항은 비워 두시면 직원이 도와드려요.</p>
         </div>
         <div className="flex flex-col items-center justify-center rounded-[3mm] px-[5mm] text-white" style={{ background: accent, minWidth: '34mm' }}>
@@ -103,7 +114,7 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
         </div>
       </header>
 
-      <div className="mt-[5mm] grid grid-cols-2 gap-[6mm]" style={{ fontSize: '13pt', breakInside: 'avoid' }}>
+      <div className="mt-[4mm] grid grid-cols-2 gap-[6mm]" style={{ fontSize: '13pt', breakInside: 'avoid' }}>
         <label className="flex items-end gap-[2mm] font-bold">성함<span className="flex-1 border-b border-black" style={{ height: '8mm' }} /></label>
         <div className="flex items-end gap-[2mm] font-bold">
           전화번호 뒷 4자리
@@ -111,7 +122,7 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
         </div>
       </div>
 
-      <div className="mt-[7mm]">
+      <div className="mt-[5mm]">
         {elder.map((q, i) => <PaperQuestion key={q.key} q={q} no={i + 1} all={all} staffNames={staffNames} />)}
         <p className="mt-[2mm] text-center font-bold" style={{ fontSize: '13pt' }}>다 쓰셨으면 직원에게 주세요. 감사합니다!</p>
       </div>
@@ -162,7 +173,7 @@ export function PrintSurveyScreen() {
         @page { size: A4 portrait; margin: 12mm 13mm; }
         @media print {
           .print-survey .paper { width: auto !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; background: none !important; }
-          .print-survey .paper:last-child { break-after: auto !important; }
+          .print-survey .paper + .paper { break-before: page; }
         }
         @media screen {
           .print-survey .paper { position: relative; min-height: 297mm; margin-bottom: 8mm; box-shadow: var(--shadow-card); }
