@@ -225,12 +225,10 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
       out[out.length - 1].push(el.dataset.block!)
       used[used.length - 1] += h
     }
-    // 직원 기입란은 순서와 상관없으니, 뒤쪽부터 남는 공간이 있는 쪽의 맨 아래에 넣는다 (빈 쪽이 하나 더 생기지 않게)
+    // 직원 기입란은 항상 설문의 맨 끝(마지막 쪽 맨 아래). 마지막 쪽에 자리가 없으면 새 쪽으로 넘긴다
     if (staffH >= 0) {
-      let at = -1
-      for (let i = out.length - 1; i >= 0; i--) if (used[i] + staffH <= limit) { at = i; break }
-      if (at < 0) { out.push([]); at = out.length - 1 }
-      out[at].push('__staff')
+      if (used[used.length - 1] + staffH > limit) { out.push([]); used.push(0) }
+      out[out.length - 1].push('__staff')
     }
     setPages({ sig: `${signature}#${fontsTick}`, keys: out })
   })
