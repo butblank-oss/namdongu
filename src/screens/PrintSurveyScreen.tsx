@@ -48,8 +48,8 @@ const T = {
   notice: '13pt',
   lineHeight: 1.55,
   box: '7mm',
-  optionGapY: '3.5mm',
-  questionGap: '8mm',
+  optionGapY: '3mm',
+  questionGap: '6.5mm',
   staff: '11pt',
   staffOption: '10.5pt',
 }
@@ -84,11 +84,9 @@ function PaperQuestion({ q, no, all, staff, staffNames }: { q: Question; no: num
   }
   if (staff) {
     return (
-      <div data-testid="paper-question" style={{ breakInside: 'avoid', marginBottom: '2mm' }}>
-        <p className="font-bold text-black" style={{ fontSize: T.staff }}>{q.label}</p>
-        <div className="mt-[1.5mm] flex flex-wrap gap-x-[5mm] gap-y-[1.5mm]" style={{ fontSize: T.staffOption }}>
-          {options.map((o) => <span key={o} className="flex items-center gap-[1.5mm]"><Box round={!multi} size="4.5mm" />{o}</span>)}
-        </div>
+      <div data-testid="paper-question" className="flex flex-wrap items-center gap-x-[4mm] gap-y-[1mm]" style={{ breakInside: 'avoid', marginBottom: '2mm' }}>
+        <span className="shrink-0 font-bold text-black" style={{ fontSize: T.staff }}>{q.label}</span>
+        {options.map((o) => <span key={o} className="flex items-center gap-[1.5mm]" style={{ fontSize: T.staffOption }}><Box round={!multi} size="4.5mm" />{o}</span>)}
       </div>
     )
   }
@@ -180,14 +178,14 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
       key: '__staff',
       node: (
         <div className="rounded-[2mm] border-[1.4px] border-dashed border-black/70 px-[4mm] py-[3mm]">
-          <p className="mb-[3mm] flex items-center gap-[3mm] font-bold" style={{ fontSize: '11pt' }}>
+          <p className="mb-[2mm] flex items-center gap-[3mm] font-bold" style={{ fontSize: '11pt' }}>
             직원 기입란
             <span className="font-medium text-black/70">입력자 ____________</span>
             <span className="ml-auto flex items-center gap-[1.5mm] font-medium text-black/70"><Box size="4.5mm" /> 앱 입력 완료</span>
           </p>
           <div className="grid grid-cols-2 gap-x-[6mm]">
             {staff.map((q, i) => (
-              <div key={q.key} style={q.type === 'textarea' || (q.options?.length ?? 0) > 4 ? { gridColumn: 'span 2' } : undefined}>
+              <div key={q.key} style={q.type === 'textarea' || (q.options?.length ?? 0) > 2 ? { gridColumn: 'span 2' } : undefined}>
                 <PaperQuestion q={q} no={i + 1} all={all} staff staffNames={staffNames} />
               </div>
             ))}
@@ -225,12 +223,10 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
       out[out.length - 1].push(el.dataset.block!)
       used[used.length - 1] += h
     }
-    // 직원 기입란은 순서와 상관없으니, 뒤쪽부터 남는 공간이 있는 쪽의 맨 아래에 넣는다 (빈 쪽이 하나 더 생기지 않게)
+    // 직원 기입란은 항상 설문의 맨 끝(마지막 쪽 맨 아래). 마지막 쪽에 자리가 없으면 새 쪽으로 넘긴다
     if (staffH >= 0) {
-      let at = -1
-      for (let i = out.length - 1; i >= 0; i--) if (used[i] + staffH <= limit) { at = i; break }
-      if (at < 0) { out.push([]); at = out.length - 1 }
-      out[at].push('__staff')
+      if (used[used.length - 1] + staffH > limit) { out.push([]); used.push(0) }
+      out[out.length - 1].push('__staff')
     }
     setPages({ sig: `${signature}#${fontsTick}`, keys: out })
   })
