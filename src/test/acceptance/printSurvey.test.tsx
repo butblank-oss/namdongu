@@ -64,3 +64,12 @@ test('성함·전화번호는 밑줄 칸 두 개 (전화번호 전체를 적는�
   expect(np).not.toHaveTextContent('뒷 4자리')
   expect(within(a).getAllByTestId('sheet').length).toBeGreaterThan(0)
 })
+
+test('게임 문항은 게임 카드와 같은 번호가 붙는다', async () => {
+  await setup()
+  const a = (await screen.findAllByTestId('paper'))[0]
+  const games = within(a).getAllByTestId('paper-question').find((el) => el.textContent?.includes('즐겨 하시는 게임'))!
+  expect(games).toHaveTextContent('1기억의 숨바꼭질')
+  expect(games).toHaveTextContent('16바이러스 퇴치')
+  expect(games).not.toHaveTextContent('타일 뒤집기')
+})

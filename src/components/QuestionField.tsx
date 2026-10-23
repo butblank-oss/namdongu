@@ -13,7 +13,7 @@ interface Props {
   onChange: (key: string, value: AnswerValue) => void
 }
 
-function OptionButton({ selected, multi, label, onClick }: { selected: boolean; multi: boolean; label: string; onClick: () => void }) {
+function OptionButton({ selected, multi, label, no, onClick }: { selected: boolean; multi: boolean; label: string; no?: number; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -34,6 +34,7 @@ function OptionButton({ selected, multi, label, onClick }: { selected: boolean; 
           </svg>
         )}
       </span>
+      {no != null && <span aria-hidden data-testid="option-no" className="tabular min-w-[1.5em] font-bold text-grey-500">{no}</span>}
       {label}
     </button>
   )
@@ -52,6 +53,7 @@ export const QuestionField = memo(function QuestionField({ q, value, etcValue, i
         <div role={multi ? 'group' : 'radiogroup'} aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2.5">
           {options.map((o) => (
             <OptionButton key={o} label={o} multi={multi} selected={arr.includes(o)}
+              no={q.gameList ? options.indexOf(o) + 1 : undefined}
               onClick={() => {
                 if (multi) onChange(q.key, arr.includes(o) ? arr.filter((x) => x !== o) : [...arr, o])
                 else onChange(q.key, o)
