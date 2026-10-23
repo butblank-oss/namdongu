@@ -107,6 +107,7 @@ function PaperQuestion({ q, no, all, staff, staffNames }: { q: Question; no: num
           {options.map((o) => (
             <div key={o} className="flex items-center gap-[2.5mm] text-black" style={o === ETC ? { gridColumn: `span ${Math.min(cols, 2)}` } : undefined}>
               <Box round={!multi} />
+              {q.gameList && <span className="tabular shrink-0 font-bold" style={{ minWidth: '6mm' }}>{options.indexOf(o) + 1}</span>}
               <span className="leading-snug">{o}</span>
               {o === ETC && <span className="ml-[1mm] flex-1 border-b-2 border-black/70" style={{ height: '7mm' }} />}
             </div>
