@@ -89,7 +89,7 @@ npm run build
 | `scripts/import-participants.ts` | 명단 임포트 (service role) |
 | `src/lib/engine.ts` | 로컬 우선 저장 + 동기화 + Realtime + 백업 |
 | `src/lib/search.ts` | 마스킹 이름 매칭 규칙 |
-| `src/lib/defaultSchema.ts` | 기본 설문(어드민에서 편집), 게임 17종 |
+| `src/lib/defaultSchema.ts` | 기본 설문(어드민에서 편집), 게임 16종 |
 | `src/screens/` | 찾기, 본인 확인, 설문, 완료, 명단 외 추가, 어드민, 게임 카드 |
 | `src/test/acceptance/`, `tests/` | 수용 기준 1~25 테스트 |
 
