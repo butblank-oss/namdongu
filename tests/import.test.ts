@@ -130,3 +130,31 @@ describe('normalizeCohort (3기 = 2026년 과정)', () => {
     expect(normalizeCohort('단기 기억력 측정해보기')).toBe('?')
   })
 })
+
+describe('마스킹 없는 추출본 (2026-10-26 형식: name · mobile_number)', () => {
+  const unmasked = () => fixture().map(({ name_masked: _n, mobile_masked: _m, ...r }, i) => ({
+    ...r, name: ['홍길동', '이', '남궁민수 ', ''][i % 4], mobile_number: `010-1234-${String(1000 + i)}`,
+  }))
+
+  it('이름을 앱 형식으로 가리고, 실명·뒷4자리를 채운다', async () => {
+    const s = await runImport({ rows: unmasked(), snapshotDate: '2026-10-26', client: null, dryRun: true })
+    const byName = new Map(s.included.map((p) => [p.full_name, p]))
+    expect(byName.get('홍길동')?.name_masked).toBe('홍*동')
+    expect(byName.get('이')?.name_masked).toBe('*')
+    expect(byName.get('남궁민수')?.name_masked).toBe('남*민수')
+    expect(s.fullNameMismatch).toBe(0)
+    for (const p of s.included) expect(p.phone_last4).toMatch(/^1\d{3}$/)
+    expect(s.excluded.no_name).toBeGreaterThan(0)
+  })
+
+  it('전체 번호는 participants 가 아니라 contacts 로만 간다', async () => {
+    const contacts: { participant_id: string; mobile: string }[] = []
+    const { client, calls } = fake()
+    client.insertContacts = async (rows) => { contacts.push(...rows); return rows.length }
+    const s = await runImport({ rows: unmasked(), snapshotDate: '2026-10-26', client, dryRun: false })
+    for (const r of calls.upserts.flat()) { expect('mobile_number' in r).toBe(false); expect('mobile' in r).toBe(false) }
+    expect(contacts).toHaveLength(s.included.length)
+    for (const c of contacts) expect(c.mobile).toMatch(/^010-1234-1\d{3}$/)
+    expect(s.contacts).toEqual({ available: s.included.length, inserted: s.included.length })
+  })
+})

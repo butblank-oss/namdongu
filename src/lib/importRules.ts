@@ -111,6 +111,30 @@ export function fullNameMatchesMasked(full: string, masked: string): boolean {
   return full.length === masked.length && [...masked].every((c, i) => c === '*' || c === full[i])
 }
 
+/** 실명 → 앱 명단 형식의 마스킹 이름 (두 번째 글자를 *: 홍길동 → 홍*동, 이 → *) */
+export function maskName(full: string): string {
+  const t = (full ?? '').trim()
+  if (t.length <= 1) return t ? '*' : ''
+  return t[0] + '*' + t.slice(2)
+}
+
+/** +821012345678 / 01012345678 / 010-1234-5678 → 010-1234-5678 (휴대폰이 아니면 null) */
+export function normalizeMobile(raw: string): string | null {
+  let d = (raw ?? '').replace(/\D/g, '')
+  if (d.startsWith('82')) d = '0' + d.slice(2)
+  if (!/^01\d{8,9}$/.test(d)) return null
+  return `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}`
+}
+
+/**
+ * 2026-10-26 추출본부터 마스킹 없이 name·mobile_number 로 온다.
+ * 옛 형식(name_masked·mobile_masked)으로 맞춰 두면 나머지 규칙은 그대로 쓴다.
+ */
+export function normalizeSourceRow(row: SourceRow): SourceRow {
+  if (row.name_masked !== undefined || row.name === undefined) return row
+  return { ...row, name_masked: maskName(row.name), mobile_masked: row.mobile_masked ?? row.mobile_number ?? '' }
+}
+
 export function toParticipant(row: SourceRow, snapshotDate: string, nameColumn: string | null = null): ParticipantRow {
   const dsl = toInt(row.days_since_last_activity)
   const tot = toInt(row.total_activity_cnt) ?? 0
@@ -151,7 +175,8 @@ export function transformRows(rows: SourceRow[], snapshotDate: string): ImportSu
   const byCohort: Record<Cohort, number> = { '3': 0, '2': 0, '1': 0, '?': 0 }
   const byId = new Map<string, ParticipantRow>()
   const nameColumn = rows.length ? fullNameColumn(Object.keys(rows[0])) : null
-  for (const row of rows) {
+  for (const raw of rows) {
+    const row = normalizeSourceRow(raw)
     const reason = classifyRow(row)
     if (reason === null || reason === 'not_cohort3') byCohort[normalizeCohort(row.challenge_names)]++
     if (reason) { excluded[reason]++; continue }

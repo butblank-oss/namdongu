@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { parseCsv } from './csv.ts'
 import {
   EXPECTED_20260914,
+  normalizeMobile,
   TARGET_PROVIDER,
   transformRows,
   type ImportSummary,
@@ -21,6 +22,8 @@ export interface ImportClient {
   selectIds(): Promise<string[]>
   upsert(rows: Record<string, unknown>[]): Promise<void>
   deactivate(ids: string[]): Promise<void>
+  /** 전체 번호를 participant_contacts 에 넣는다. 이미 있는 번호(4기 신청서에서 받은 것)는 덮어쓰지 않는다 */
+  insertContacts?(rows: { participant_id: string; mobile: string }[]): Promise<number>
 }
 
 export interface RunSummary extends ImportSummary {
@@ -28,6 +31,8 @@ export interface RunSummary extends ImportSummary {
   providerRows: number
   nullPhone: number
   deactivated: string[]
+  /** 추출본에 전체 번호 열이 있을 때: 넣을 수 있는 번호 수 · 새로 들어간 수 */
+  contacts: { available: number; inserted: number } | null
   warnings: string[]
   dryRun: boolean
 }
@@ -81,8 +86,17 @@ export async function runImport(opts: {
   const nullPhone = t.included.filter((p) => p.phone_last4 == null).length
   const warnings = compareExpected(t)
   const summary: RunSummary = {
-    ...t, totalSource: rows.length, providerRows, nullPhone, deactivated: [], warnings, dryRun,
+    ...t, totalSource: rows.length, providerRows, nullPhone, deactivated: [], contacts: null, warnings, dryRun,
   }
+  const hasMobile = rows.length > 0 && 'mobile_number' in rows[0]
+  const byId = new Map(rows.map((r) => [(r.user_id ?? '').trim(), r]))
+  const contacts = hasMobile
+    ? t.included.flatMap((p) => {
+      const mobile = normalizeMobile(byId.get(p.id)?.mobile_number ?? '')
+      return mobile ? [{ participant_id: p.id, mobile }] : []
+    })
+    : []
+  if (hasMobile) summary.contacts = { available: contacts.length, inserted: 0 }
   if (dryRun) return summary
   if (!client) throw new Error('client required unless dryRun')
 
@@ -94,6 +108,7 @@ export async function runImport(opts: {
   const missing = existing.filter((id) => !keep.has(id))
   for (let i = 0; i < missing.length; i += BATCH) await client.deactivate(missing.slice(i, i + BATCH))
   summary.deactivated = missing
+  if (contacts.length && client.insertContacts) summary.contacts!.inserted = await client.insertContacts(contacts)
   return summary
 }
 
@@ -123,6 +138,17 @@ export function supabaseAdapter(url: string, key: string): ImportClient {
           .in('id', ids.slice(i, i + 200))
         if (error) throw new Error(`deactivate participants: ${error.message}`)
       }
+    },
+    async insertContacts(rows) {
+      let inserted = 0
+      for (let i = 0; i < rows.length; i += 200) {
+        const batch = rows.slice(i, i + 200).map((r) => ({ ...r, source: 'roster_s3', updated_at: new Date().toISOString() }))
+        const { data, error } = await sb.from('participant_contacts')
+          .upsert(batch, { onConflict: 'participant_id', ignoreDuplicates: true }).select('participant_id')
+        if (error) throw new Error(`insert participant_contacts: ${error.message}`)
+        inserted += data?.length ?? 0
+      }
+      return inserted
     },
   }
 }
@@ -160,6 +186,7 @@ export function printSummary(s: RunSummary): void {
   } else {
     L('Comparison with expected: within 2%')
   }
+  if (s.contacts) L(`Full mobile numbers: ${s.contacts.available} available · ${s.dryRun ? '(dry run)' : `${s.contacts.inserted} newly saved (existing numbers kept)`}`)
   L(s.dryRun ? 'DRY RUN: no network calls made.' : `Deactivated (absent from import): ${s.deactivated.length}`)
 }
 
