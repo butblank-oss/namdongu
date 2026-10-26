@@ -4,7 +4,7 @@ const KV_ALIASES = 'aliases'
 import { DEFAULT_PAYLOAD } from './defaultSchema'
 import { RemoteError, toServerRow, type PresenceInfo, type Remote } from './remote'
 import type {
-  AccessAction, LocalResponse, ManualInfo, Participant, ResponseRow, Staff, SurveyPayload, SurveySchema, Track, Verified,
+  AccessAction, LocalResponse, ManualInfo, Participant, QueueState, ResponseRow, Staff, SurveyPayload, SurveySchema, Track, Verified,
 } from './types'
 
 export interface SyncStatus {
@@ -17,6 +17,7 @@ export interface SyncStatus {
 
 const DEVICE_KEY = 'namdongu.deviceId'
 const ME_KEY = 'namdongu.me'
+const MY_CALL_KEY = 'namdongu.myQueueCall'
 
 function safeLocal(): Storage | null {
   try { return window.localStorage } catch { return null }
@@ -63,6 +64,10 @@ export class Engine {
   schema: SurveySchema = { version: 0, payload: DEFAULT_PAYLOAD, locked: false, updated_by: null, updated_at: '' }
   staff: Staff[] = []
   presence: PresenceInfo[] = []
+  /** 대기번호 현황 (서버에서 못 읽었으면 null) */
+  queue: QueueState | null = null
+  /** 이 기기에서 부르고 아직 설문에 넣지 않은 번호. 다음 설문을 시작하면 그 응답의 대기번호가 된다 */
+  myCall: number | null = (() => { const v = Number(safeLocal()?.getItem(MY_CALL_KEY)); return v > 0 ? v : null })()
   me: string | null = safeLocal()?.getItem(ME_KEY) ?? null
   readonly device: string
   readonly db: AppDB
@@ -152,6 +157,7 @@ export class Engine {
       onSchema: (s) => { void this.applySchema(s) },
       onStaff: () => { void this.pullStaff() },
       onPresence: (list) => { this.presence = list; this.emit() },
+      onQueue: () => { void this.pullQueue() },
     })
     this.emit()
     await this.fullPull()
@@ -205,7 +211,51 @@ export class Engine {
       }
     })
     await this.pullStaff()
+    await this.pullQueue()
     await this.syncNow()
+  }
+
+  // ── 대기번호 ────────────────────────────────────
+  async pullQueue() {
+    await this.guarded(async () => {
+      this.queue = await this.remote.fetchQueue()
+      this.emit()
+    })
+  }
+
+  private setMyCall(n: number | null) {
+    this.myCall = n
+    try {
+      if (n == null) safeLocal()?.removeItem(MY_CALL_KEY)
+      else safeLocal()?.setItem(MY_CALL_KEY, String(n))
+    } catch { /* 저장 못 해도 화면에는 보인다 */ }
+    this.emit()
+  }
+
+  /** 다음 분 호출 (인터넷 필요). 반환: 부른 번호 */
+  async callNext(): Promise<number> {
+    const n = await this.remote.callNextQueue()
+    this.setMyCall(n)
+    await this.pullQueue()
+    return n
+  }
+
+  async recall(n: number) {
+    await this.remote.recallQueue(n)
+    await this.pullQueue()
+  }
+
+  async setQueue(lastCalled: number, maxNumber: number) {
+    await this.remote.setQueue(lastCalled, maxNumber)
+    await this.pullQueue()
+  }
+
+  /** 부른 번호를 응답에 넣고 비운다 (이미 번호가 있는 응답이면 그대로) */
+  private takeMyCall(current: number | null | undefined): number | null | undefined {
+    if (current != null || this.myCall == null) return current
+    const n = this.myCall
+    this.setMyCall(null)
+    return n
   }
 
   async pullStaff() {
@@ -384,6 +434,8 @@ export class Engine {
       updated_at: now,
       client_rev: 1,
       deleted_at: null,
+      // 서버에 대기번호 칸이 없을 때(마이그레이션 전)도 동기화가 깨지지 않게, 번호가 있을 때만 넣는다
+      ...(this.myCall != null ? { queue_no: this.takeMyCall(null) } : {}),
       _dirty: 1,
       _server_rev: 0,
     }
@@ -400,7 +452,10 @@ export class Engine {
   }
 
   async takeOver(id: string, patch: Partial<ResponseRow> = {}): Promise<LocalResponse | undefined> {
-    return this.updateResponse(id, (r) => ({ ...r, entered_by: this.me, device_id: this.device, ...patch }))
+    return this.updateResponse(id, (r) => {
+      const queue_no = r.status === 'in_progress' ? this.takeMyCall(r.queue_no) : r.queue_no
+      return { ...r, entered_by: this.me, device_id: this.device, ...patch, ...(queue_no != null ? { queue_no } : {}) }
+    })
   }
 
   async updateResponse(rawId: string, fn: (r: LocalResponse) => LocalResponse): Promise<LocalResponse | undefined> {

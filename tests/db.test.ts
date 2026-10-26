@@ -46,7 +46,7 @@ const asOp = (sql: string, params: unknown[] = []) => asUser(db, OP, sql, params
 
 // 로그인 필수(20261002010000_require_login.sql) 기준
 describe('익명(anon)은 아무것도 못 한다', () => {
-  for (const t of ['staff', 'participants', 'responses', 'survey_schema', 'access_log', 'participant_contacts', 'preorder4_applicants', 'staff_initial_password']) {
+  for (const t of ['staff', 'participants', 'responses', 'survey_schema', 'access_log', 'participant_contacts', 'preorder4_applicants', 'staff_initial_password', 'queue_state', 'queue_calls']) {
     it(`cannot select ${t}`, async () => {
       await rejects(asAnon(db, `select * from ${t}`))
     })
@@ -236,5 +236,49 @@ describe('첫 로그인 비밀번호 변경', () => {
       on conflict (id) do update set name=excluded.name, active=excluded.active, role=excluded.role`, [id.id])
     const r = await asService(db, `select must_change_password from staff where auth_user_id=$1`, [OP])
     expect(r.rows).toEqual([{ must_change_password: false }])
+  })
+})
+
+describe('대기번호 (20261026000000_queue.sql)', () => {
+  const next = async (who: string) => ((await asUser(db, who, `select public.queue_call_next() as n`)).rows[0] as { n: number }).n
+
+  it('익명은 호출할 수 없다', async () => {
+    await rejects(asAnon(db, `select public.queue_call_next()`))
+  })
+  it('담당자가 아닌 계정은 호출할 수 없다', async () => {
+    await rejects(asUser(db, STRANGER, `select public.queue_call_next()`))
+  })
+  it('담당자는 1번부터 차례로 부르고, 누가 불렀는지 남는다', async () => {
+    expect(await next(OP)).toBe(1)
+    expect(await next(ADMIN)).toBe(2)
+    const r = await asOp(`select number, called_by from queue_calls order by number`)
+    expect(r.rows).toEqual([{ number: 1, called_by: '김다희' }, { number: 2, called_by: '김소리' }])
+    expect((await asOp(`select last_called, max_number from queue_state`)).rows).toEqual([{ last_called: 2, max_number: 160 }])
+  })
+  it('표를 직접 고칠 수는 없다 (함수로만)', async () => {
+    const r = await asOp(`update queue_state set last_called = 99`).catch(() => ({ affectedRows: 0 }))
+    expect(r.affectedRows ?? 0).toBe(0)
+    await rejects(asOp(`insert into queue_calls (number) values (50)`))
+  })
+  it('다시 부르기는 부른 번호만 된다', async () => {
+    await asOp(`select public.queue_recall(1)`)
+    await rejects(asOp(`select public.queue_recall(77)`), 'QUEUE_NOT_CALLED')
+  })
+  it('끝 번호를 넘으면 QUEUE_END', async () => {
+    await asAdmin(`select public.queue_set(2, 3)`)
+    expect(await next(OP)).toBe(3)
+    await rejects(asOp(`select public.queue_call_next()`), 'QUEUE_END')
+  })
+  it('번호 바꾸기는 관리자만, 되돌리면 그 뒤 호출 기록은 지운다', async () => {
+    await rejects(asOp(`select public.queue_set(0, 160)`))
+    await asAdmin(`select public.queue_set(1, 160)`)
+    expect((await asOp(`select number from queue_calls order by number`)).rows).toEqual([{ number: 1 }])
+    expect(await next(OP)).toBe(2)
+    await rejects(asAdmin(`select public.queue_set(5, 3)`), 'QUEUE_RANGE')
+  })
+  it('응답에 대기번호를 저장한다', async () => {
+    const r = await asOp(`insert into responses (manual_info, track, queue_no) values ('{"name":"x"}','B',2) returning queue_no`)
+    expect(r.rows).toEqual([{ queue_no: 2 }])
+    await rejects(asOp(`insert into responses (manual_info, track, queue_no) values ('{"name":"x"}','B',0)`))
   })
 })

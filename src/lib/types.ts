@@ -63,6 +63,8 @@ export interface ResponseRow {
   updated_at: string
   client_rev: number
   deleted_at: string | null
+  /** 현장 대기번호 (입구 번호표) */
+  queue_no?: number | null
 }
 
 /** 로컬(IndexedDB) 레코드: 서버 컬럼 + 동기화 메타 */
@@ -79,6 +81,19 @@ export interface Staff {
   active: boolean
   role: 'admin' | 'operator'
   auth_user_id: string | null
+}
+
+export interface QueueCall {
+  number: number
+  called_by: string | null
+  called_at: string
+}
+
+/** 대기번호 현황: 지금까지 부른 마지막 번호, 끝 번호, 최근 부른 번호(최신 순) */
+export interface QueueState {
+  last_called: number
+  max_number: number
+  calls: QueueCall[]
 }
 
 export type AccessAction = 'view' | 'verify' | 'export' | 'delete'

@@ -1,7 +1,7 @@
 // 메모리 안의 가짜 서버. 테스트와 로컬 데모 모드에서만 쓴다 (실데이터 없음).
 import { RemoteError, toServerRow, type PresenceInfo, type Remote, type RemoteHandlers } from './remote'
 import { allQuestionKeys } from './survey'
-import type { AccessLogEntry, Participant, ResponseRow, Staff, SurveyPayload, SurveySchema } from './types'
+import type { AccessLogEntry, Participant, QueueState, ResponseRow, Staff, SurveyPayload, SurveySchema } from './types'
 
 export class FakeServer {
   participants: Participant[] = []
@@ -11,6 +11,7 @@ export class FakeServer {
   staff: Staff[] = []
   clients = new Set<FakeRemote>()
   presence = new Map<FakeRemote, PresenceInfo>()
+  queue: QueueState = { last_called: 0, max_number: 160, calls: [] }
   private tick = 0
 
   now(): string {
@@ -24,6 +25,9 @@ export class FakeServer {
   }
   broadcastSchema() {
     for (const c of this.clients) if (this.schema) c.handlers?.onSchema(structuredClone(this.schema))
+  }
+  broadcastQueue() {
+    for (const c of this.clients) c.handlers?.onQueue?.()
   }
   broadcastPresence() {
     const list = [...this.presence.values()]
@@ -136,6 +140,41 @@ export class FakeRemote implements Remote {
   async fetchMyStaff() {
     this.guard('fetchMyStaff')
     return this.server.staff.find((s) => s.name === this.me.name) ?? null
+  }
+
+  async fetchQueue() {
+    this.guard('fetchQueue')
+    const q = this.server.queue
+    return structuredClone({ ...q, calls: [...q.calls].sort((a, b) => b.called_at.localeCompare(a.called_at)).slice(0, 12) })
+  }
+
+  async callNextQueue() {
+    this.guard('callNextQueue')
+    const q = this.server.queue
+    if (q.last_called >= q.max_number) throw new RemoteError('QUEUE_END', 'no more numbers')
+    const n = ++q.last_called
+    q.calls = [...q.calls.filter((c) => c.number !== n), { number: n, called_by: this.me.name, called_at: this.server.now() }]
+    this.server.broadcastQueue()
+    return n
+  }
+
+  async recallQueue(n: number) {
+    this.guard('recallQueue')
+    const c = this.server.queue.calls.find((x) => x.number === n)
+    if (!c) throw new RemoteError('UNKNOWN', 'not called yet')
+    c.called_at = this.server.now()
+    c.called_by = this.me.name
+    this.server.broadcastQueue()
+  }
+
+  async setQueue(lastCalled: number, maxNumber: number) {
+    this.guard('setQueue')
+    if (this.me.role !== 'admin') throw new RemoteError('FORBIDDEN', 'forbidden')
+    const q = this.server.queue
+    q.last_called = lastCalled
+    q.max_number = maxNumber
+    q.calls = q.calls.filter((c) => c.number <= lastCalled)
+    this.server.broadcastQueue()
   }
 
   subscribe(h: RemoteHandlers) {

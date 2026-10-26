@@ -73,3 +73,10 @@ body {
   .no-print { display: none !important; }
   body { background: white; }
 }
+
+/* 대기석 큰 화면: 새 번호가 뜰 때 */
+@keyframes queue-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}

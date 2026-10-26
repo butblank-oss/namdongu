@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useDB, useEngine } from '../app/context'
 import { QuestionField } from '../components/QuestionField'
+import { QueueNoField } from './QueueScreen'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
 import { etcKey, RESULT_STATUS } from '../lib/defaultSchema'
 import { nowIso } from '../lib/engine'
@@ -52,6 +54,9 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
   const [tried, setTried] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isEdit = initial.status !== 'in_progress'
+  // 대기번호는 호출 직후 다른 경로(takeOver)로 들어올 수 있어 DB 값을 따라간다
+  const queueNo = useLiveQuery(() => engine.db.responses.get(engine.resolveId(initial.id)).then((r) => r?.queue_no ?? null),
+    [engine, initial.id], initial.queue_no ?? null)
 
   const sections = useMemo(() => buildSections(engine.schema.payload, initial.track, answers),
     [engine.schema.payload, initial.track, answers])
@@ -143,6 +148,7 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
           <Badge tone={TRACK_TONE[initial.track]}>{TRACK_LABEL[initial.track]}</Badge>
           {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
           {isEdit && <Badge tone="green">완료된 응답 수정 중</Badge>}
+          <QueueNoField responseId={initial.id} value={queueNo} />
           <span className="tabular ml-auto text-[15px] font-semibold text-grey-600" data-testid="progress-required">
             필수 <span className="text-blue-500">{doneCount}</span> / {required.length}
           </span>
