@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 import { parseCsv } from './csv.ts'
-import { classifyRow, toParticipant } from '../src/lib/importRules.ts'
+import { classifyRow, normalizeMobile, toParticipant } from '../src/lib/importRules.ts'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -25,13 +25,6 @@ i,m=h.index('id'),h.index('mobileNumber')
 print(json.dumps([{'id':str(r[i]),'mobile':str(r[m] or '')} for r in rows[1:]]))`
 const apps = JSON.parse(execFileSync('python3', ['-c', py, xlsxPath]).toString()) as { id: string; mobile: string }[]
 
-/** +821012345678 / 01012345678 / 010-1234-5678 → 010-1234-5678 (휴대폰이 아니면 null) */
-export function normalizeMobile(raw: string): string | null {
-  let d = raw.replace(/\D/g, '')
-  if (d.startsWith('82')) d = '0' + d.slice(2)
-  if (!/^01\d{8,9}$/.test(d)) return null
-  return `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}`
-}
 
 const roster = (parseCsv(readFileSync(s3Path, 'utf8')) as never[])
   .filter((r) => classifyRow(r) === null).map((r) => toParticipant(r, '0000-00-00'))
