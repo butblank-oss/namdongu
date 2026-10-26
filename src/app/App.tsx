@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { EngineContext, useEngine } from './context'
 import { TopBar } from '../components/TopBar'
 import { PageTitle, Screen } from '../components/ui'
@@ -12,6 +12,7 @@ import { DoneScreen } from '../screens/DoneScreen'
 import { ManualAddScreen } from '../screens/ManualAddScreen'
 import { PrintCardsScreen } from '../screens/PrintCardsScreen'
 import { PrintSurveyScreen } from '../screens/PrintSurveyScreen'
+import { QueueDisplayScreen, QueueSettingsScreen } from '../screens/QueueScreen'
 import { SearchScreen } from '../screens/SearchScreen'
 import { GuardedSurvey } from '../screens/SurveyScreen'
 import { VerifyScreen } from '../screens/VerifyScreen'
@@ -35,7 +36,10 @@ function StaffPicker() {
 
 function Shell() {
   const engine = useEngine()
+  const location = useLocation()
   if (!engine.me) return <StaffPicker />
+  // 대기석 큰 화면은 상단 바 없이 전체 화면
+  if (location.pathname === '/queue') return <QueueDisplayScreen />
   return (
     <>
       <TopBar />
@@ -51,6 +55,7 @@ function Shell() {
         <Route path="/list" element={<ResponseListScreen />} />
         <Route path="/dashboard" element={<DashboardScreen />} />
         <Route path="/applicants" element={<ApplicantsScreen />} />
+        <Route path="/queue-settings" element={<QueueSettingsScreen />} />
         <Route path="*" element={<SearchScreen />} />
       </Routes>
     </>

@@ -2,7 +2,7 @@ import { createClient, type PostgrestError, type SupabaseClient } from '@supabas
 import {
   RemoteError, toServerRow, type PresenceInfo, type Remote, type RemoteErrorCode, type RemoteHandlers,
 } from './remote'
-import type { AccessLogEntry, Participant, ResponseRow, Staff, SurveyPayload, SurveySchema } from './types'
+import type { AccessLogEntry, Participant, QueueState, ResponseRow, Staff, SurveyPayload, SurveySchema } from './types'
 
 // 운영 프로젝트 기본값. publishable key 는 원래 공개용이다 (권한은 DB 정책이 정한다).
 // 다른 프로젝트로 돌릴 때만 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 로 덮어쓴다. 테스트 모드에서는 비운다.
@@ -29,7 +29,8 @@ function toRemoteError(e: PostgrestError | Error | null): RemoteError {
   const pe = e as PostgrestError
   const text = `${pe.message ?? ''} ${pe.hint ?? ''}`
   let code: RemoteErrorCode = 'UNKNOWN'
-  if (text.includes('LOCKED')) code = 'LOCKED'
+  if (text.includes('QUEUE_END')) code = 'QUEUE_END'
+  else if (text.includes('LOCKED')) code = 'LOCKED'
   else if (text.includes('KEY_IN_USE')) code = 'KEY_IN_USE'
   else if (text.includes('STALE_REV')) code = 'STALE_REV'
   else if (pe.code === '23505') code = 'DUPLICATE'
@@ -137,6 +138,32 @@ export class SupabaseRemote implements Remote {
     return data as Staff | null
   }
 
+  async fetchQueue(): Promise<QueueState> {
+    const [s, c] = await Promise.all([
+      this.sb.from('queue_state').select('last_called, max_number').eq('id', 1).maybeSingle(),
+      this.sb.from('queue_calls').select('number, called_by, called_at').order('called_at', { ascending: false }).limit(12),
+    ])
+    if (s.error) throw toRemoteError(s.error)
+    if (c.error) throw toRemoteError(c.error)
+    return { last_called: s.data?.last_called ?? 0, max_number: s.data?.max_number ?? 160, calls: c.data ?? [] }
+  }
+
+  async callNextQueue(): Promise<number> {
+    const { data, error } = await this.sb.rpc('queue_call_next')
+    if (error) throw toRemoteError(error)
+    return data as number
+  }
+
+  async recallQueue(n: number): Promise<void> {
+    const { error } = await this.sb.rpc('queue_recall', { p_number: n })
+    if (error) throw toRemoteError(error)
+  }
+
+  async setQueue(lastCalled: number, maxNumber: number): Promise<void> {
+    const { error } = await this.sb.rpc('queue_set', { p_last: lastCalled, p_max: maxNumber })
+    if (error) throw toRemoteError(error)
+  }
+
   subscribe(h: RemoteHandlers): () => void {
     const ch = this.sb.channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'responses' }, (p) => {
@@ -146,6 +173,8 @@ export class SupabaseRemote implements Remote {
         if (p.new && 'payload' in p.new) h.onSchema(p.new as SurveySchema)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, () => h.onStaff())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_state' }, () => h.onQueue?.())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_calls' }, () => h.onQueue?.())
       .subscribe()
 
     const pc = this.sb.channel('presence-open', { config: { presence: { key: crypto.randomUUID() } } })
