@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEngine, useParticipants, useResponses } from '../app/context'
 import { Badge, Button, Card, PageTitle, Screen, Segmented, TRACK_TONE, inputCls } from '../components/ui'
+import { APP_UPDATE_DONE, APP_UPDATE_KEY, ETC, REWARD_NONE, REWARD_PARTIAL, etcKey } from '../lib/defaultSchema'
 import { buildResponsesCsv, downloadText, stamp } from '../lib/exportCsv'
 import { TRACK_LABEL, type LocalResponse, type Participant, type Status, type Track } from '../lib/types'
 
@@ -21,6 +22,29 @@ function hhmm(iso: string | null): string {
 
 function str(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v.join(', ') : (v ?? '')
+}
+
+/** 리워드 칸 아래 작은 글씨: 일부 수령이면 받은 품목, 대상 아님이면 사유 */
+function rewardDetail(r: LocalResponse): string {
+  const rw = r.answers.reward
+  if (rw === REWARD_PARTIAL) {
+    const items = Array.isArray(r.answers.reward_partial) ? r.answers.reward_partial : r.answers.reward_partial ? [r.answers.reward_partial] : []
+    const etc = r.answers[etcKey('reward_partial')]
+    return items.map((x) => (x === ETC && typeof etc === 'string' && etc.trim() ? `기타(${etc.trim()})` : x)).join(', ')
+  }
+  if (rw === REWARD_NONE) return str(r.answers.reward_reason)
+  return ''
+}
+
+function AppUpdateCell({ r }: { r: LocalResponse }) {
+  const v = str(r.answers[APP_UPDATE_KEY])
+  if (!v) return null
+  if (v === APP_UPDATE_DONE) return <Badge tone="green">현장 업데이트</Badge>
+  if (v === '업데이트 못함') {
+    const why = str(r.answers.app_update_fail)
+    return <span><Badge tone="red">못함</Badge>{why && <span className="ml-1 text-[13px] text-grey-500">{why}</span>}</span>
+  }
+  return <Badge tone="grey">{v}</Badge>
 }
 
 function Seg<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { key: T; label: string }[]; onChange: (v: T) => void }) {
@@ -56,8 +80,9 @@ export function ResponseListScreen() {
       .filter((r) => {
         if (!term) return true
         const p = r.participant_id ? pMap.get(r.participant_id) : undefined
-        return (p?.name_masked ?? '').includes(term) || (r.manual_info?.name ?? '').includes(term)
+        return (p?.name_masked ?? '').includes(term) || (p?.full_name ?? '').includes(term) || (r.manual_info?.name ?? '').includes(term)
           || (p?.phone_last4 ?? '').includes(term) || (r.manual_info?.phone_last4 ?? '').includes(term)
+          || (/^\d+$/.test(term) && String(r.queue_no ?? '') === term)
       })
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   }, [all, status, track, staff, q, pMap])
@@ -89,7 +114,7 @@ export function ResponseListScreen() {
             {staffNames.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
-        <input aria-label="목록 검색" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름 · 뒷4자리"
+        <input aria-label="목록 검색" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름 · 뒷4자리 · 번호표"
           className={`${inputCls} !w-56`} />
       </div>
 
@@ -102,7 +127,7 @@ export function ResponseListScreen() {
         <table className="w-full border-collapse text-left text-[16px]">
           <thead>
             <tr className="text-[14px] font-medium text-grey-500">
-              {['시각', '이름', '뒷4자리', '대상', '상태', '응대 결과', '4기', '리워드', '입력자'].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
+              {['시각', '번호표', '이름', '뒷4자리', '대상', '상태', '응대 결과', '4기', '리워드', '앱 업데이트', '입력자'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-3 font-medium">{h}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-grey-100">
@@ -111,13 +136,18 @@ export function ResponseListScreen() {
                 onClick={() => open(r)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r) } }}
                 className="cursor-pointer text-grey-900 hover:bg-grey-50 focus:bg-grey-50">
                 <td className="tabular px-4 py-4 text-grey-500">{hhmm(r.completed_at ?? r.updated_at)}</td>
+                <td className="tabular px-3 py-4 font-semibold" data-testid="cell-queue">{r.queue_no ?? ''}</td>
                 <td className="px-4 py-4">{nameOf(r)} {!r.participant_id && <Badge tone="grey">명단 외</Badge>}</td>
                 <td className="tabular px-4 py-4 text-grey-500">{last4Of(r)}</td>
                 <td className="px-4 py-4"><Badge tone={TRACK_TONE[r.track]}>{TRACK_LABEL[r.track]}</Badge></td>
                 <td className="px-4 py-4"><Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge></td>
                 <td className="px-4 py-4">{r.result ?? ''}</td>
                 <td className="px-4 py-4">{str(r.answers.preorder_4)}</td>
-                <td className="px-4 py-4">{str(r.answers.reward)}</td>
+                <td className="px-3 py-4" data-testid="cell-reward">
+                  {str(r.answers.reward)}
+                  {rewardDetail(r) && <span className="block text-[13px] text-grey-500">{rewardDetail(r)}</span>}
+                </td>
+                <td className="px-3 py-4" data-testid="cell-app"><AppUpdateCell r={r} /></td>
                 <td className="px-4 py-4">{r.entered_by ?? ''}</td>
               </tr>
             ))}
