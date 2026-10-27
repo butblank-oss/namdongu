@@ -22,6 +22,8 @@ export const RESULT_STATUS: Record<string, 'done' | 'refused' | 'revisit'> = {
 
 /** 리워드: 현장 수량이 모자라면 보건소에 방문하셔서 받으신다 (2026-10-27, 예전 '추후 배송') */
 export const REWARD_ONSITE = '현장 지급'
+/** 재고가 모자라 일부만 드린 경우 (2026-10-27). 무엇을 드렸고 무엇을 못 드렸는지 reward_partial 에 적는다 */
+export const REWARD_PARTIAL = '일부 지급 (재고 부족)'
 export const REWARD_VISIT = '수량 부족 · 보건소 방문 지급'
 export const REWARD_NONE = '대상 아님'
 
@@ -60,6 +62,31 @@ export const P4_CONSENT_QUESTIONS: Question[] = [
 export const etcKey = (key: string) => `${key}__etc`
 
 /**
+ * 가족 연락처 (2026-10-27). '앞으로 안내받고 싶은 방법'에서 '가족을 통해'를 고른 분만, 가족 본인이 동의했을 때만 받는다.
+ * 가족 번호는 그 자리에 없는 다른 사람의 개인정보라 어르신이 대신 동의할 수 없다.
+ */
+export const FAMILY_CONTACT_QUESTIONS: Question[] = [
+  {
+    key: 'family_consent', type: 'single', label: '[선택] 가족 연락처 수집·이용에 동의하십니까? (가족분 본인 동의)',
+    help: '가족분이 현장에 계시거나 전화로 직접 동의하신 경우에만 받아 주세요. 어르신이 대신 동의하실 수 없습니다.',
+    options: ['동의', '미동의'],
+    showIf: { key: 'contact_pref', in: ['가족을 통해'] },
+    notice: [
+      '원메딕스는 맬리브레인 안내를 가족분께 전하기 위해 아래와 같이 개인정보를 수집·이용합니다.',
+      '· 목적: 맬리브레인 4기 모집·일정·이용 안내를 가족분께 전달',
+      '· 항목: 가족분 성함, 어르신과의 관계, 휴대폰 번호',
+      '· 보유 기간: 4기 프로그램 종료 시까지 (동의를 철회하시면 바로 파기)',
+      '· 동의하지 않으실 수 있으며, 동의하지 않으셔도 어르신의 참여에는 영향이 없습니다.',
+    ].join('\n'),
+  },
+  {
+    key: 'family_contact', type: 'text', label: '가족 성함 · 관계 · 휴대폰 번호',
+    help: '예) 김영희 · 딸 · 010-1234-5678',
+    showIf: { key: 'family_consent', in: ['동의'] },
+  },
+]
+
+/**
  * 앱 업데이트 안내 (2026-10-27). 전 회원 대상, 설문 마무리에서 현장 직원이 업데이트를 돕는다.
  * 명단의 앱 버전(participants.app_version)이 최신보다 낮으면 설문 화면에 크게 표시한다. 인쇄 용지에는 넣지 않는다.
  */
@@ -78,8 +105,9 @@ export const APP_UPDATE_QUESTIONS: Question[] = [
     showIf: { key: APP_UPDATE_KEY, in: ['업데이트 못함'] },
   },
 ]
-/** 앱 화면에만 있고 인쇄 용지에는 없는 문항 */
-export const APP_ONLY_KEYS = APP_UPDATE_QUESTIONS.map((q) => q.key)
+/** 앱 화면에만 있고 인쇄 용지에는 없는 문항.
+ *  가족 연락처는 가족 본인 동의를 직원이 확인해야 해서 앱에서만 받는다 (용지는 4쪽 유지) */
+export const APP_ONLY_KEYS = [...APP_UPDATE_QUESTIONS.map((q) => q.key), 'family_consent', 'family_contact']
 
 /** '4.0.9' < '4.1.1' 같은 버전 비교. 읽을 수 없으면 null */
 export function compareVersion(a: string | null | undefined, b: string): number | null {
@@ -195,10 +223,16 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
         key: 'contact_pref', type: 'multi', label: '앞으로 안내받고 싶은 방법',
         options: ['문자', '전화', '카카오톡', '보건소 방문', '가족을 통해'],
       },
+      ...FAMILY_CONTACT_QUESTIONS,
       {
         key: 'reward', type: 'single', label: '리워드 처리', required: true,
         help: '지급 조건: 행사 운영 기준에 따릅니다. (관리자가 설문지 편집에서 문구 수정)',
-        options: [REWARD_ONSITE, REWARD_VISIT, REWARD_NONE],
+        options: [REWARD_ONSITE, REWARD_PARTIAL, REWARD_VISIT, REWARD_NONE],
+      },
+      {
+        key: 'reward_partial', type: 'text', label: '드린 것 / 못 드린 것',
+        help: '예) 칼마디 현장 지급 / 콘드로이친 재고 부족으로 미지급',
+        showIf: { key: 'reward', in: [REWARD_PARTIAL] },
       },
       {
         key: 'reward_reason', type: 'text', label: '대상 아님 사유',
@@ -206,7 +240,7 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
       },
       {
         key: 'real_name', type: 'text', label: '실명 (선택 · 리워드 배송 확인용)',
-        showIf: { key: 'reward', in: [REWARD_ONSITE, REWARD_VISIT] },
+        showIf: { key: 'reward', in: [REWARD_ONSITE, REWARD_PARTIAL, REWARD_VISIT] },
       },
       ...APP_UPDATE_QUESTIONS,
       {
@@ -219,4 +253,4 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
 }
 
 /** 개인정보 미동의일 때도 남기는 문항 */
-export const KEYS_WITHOUT_CONSENT = ['consent', 'result', 'memo', ...APP_ONLY_KEYS]
+export const KEYS_WITHOUT_CONSENT = ['consent', 'result', 'memo', ...APP_UPDATE_QUESTIONS.map((q) => q.key)]

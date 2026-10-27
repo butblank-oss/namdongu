@@ -112,6 +112,7 @@ export function DashboardScreen() {
             <Tile id="firstGame" label="첫 게임 실행" value={k.firstGame} />
             <Tile id="preorder4" label="4기 사전신청" value={k.preorder4} />
             <Tile id="rewardGiven" label="리워드 지급" value={k.rewardGiven} />
+            <Tile id="rewardPartial" label="일부 지급 (재고 부족)" value={k.rewardPartial} />
           </section>
 
           <section aria-label="대상별 완료" className="mb-6 rounded-[20px] bg-white p-6 shadow-[var(--shadow-card)]">

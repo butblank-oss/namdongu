@@ -1,4 +1,4 @@
-import { FIRST_GAME_KEY, FIRST_GAME_OPTION, REWARD_ONSITE, REWARD_VISIT } from './defaultSchema'
+import { FIRST_GAME_KEY, FIRST_GAME_OPTION, REWARD_ONSITE, REWARD_PARTIAL, REWARD_VISIT } from './defaultSchema'
 import type { Participant, Question, ResponseRow, Track } from './types'
 
 export interface Kpis {
@@ -12,6 +12,8 @@ export interface Kpis {
   firstGame: number
   preorder4: number
   rewardGiven: number
+  /** 재고 부족으로 일부만 드린 분 */
+  rewardPartial: number
 }
 
 function asArray(v: string | string[] | undefined): string[] {
@@ -25,7 +27,7 @@ export function kpis(responses: ResponseRow[], participants: Participant[]): Kpi
   for (const p of active) byTrack[p.track].total++
   const k: Kpis = {
     rosterTotal: active.length, byTrack,
-    done: 0, inProgress: 0, refused: 0, revisit: 0, manualAdded: 0, firstGame: 0, preorder4: 0, rewardGiven: 0,
+    done: 0, inProgress: 0, refused: 0, revisit: 0, manualAdded: 0, firstGame: 0, preorder4: 0, rewardGiven: 0, rewardPartial: 0,
   }
   for (const r of responses) {
     if (r.status === 'done') { k.done++; if (byTrack[r.track]) byTrack[r.track].done++ }
@@ -37,7 +39,8 @@ export function kpis(responses: ResponseRow[], participants: Participant[]): Kpi
     if (r.answers.preorder_4 === '신청') k.preorder4++
     const rw = r.answers.reward
     // '추후 배송'은 2026-10-27 이전 보기 이름
-    if (rw === REWARD_ONSITE || rw === REWARD_VISIT || rw === '추후 배송') k.rewardGiven++
+    if (rw === REWARD_ONSITE || rw === REWARD_PARTIAL || rw === REWARD_VISIT || rw === '추후 배송') k.rewardGiven++
+    if (rw === REWARD_PARTIAL) k.rewardPartial++
   }
   return k
 }
