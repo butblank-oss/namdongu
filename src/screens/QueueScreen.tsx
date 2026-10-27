@@ -75,8 +75,8 @@ export function QueueNoField({ responseId, value }: { responseId: string; value:
   }
   return (
     <label className="flex items-center gap-1.5 whitespace-nowrap text-[15px] font-semibold text-grey-600">
-      대기
-      <input aria-label="대기번호" data-testid="queue-no" inputMode="numeric" value={text} placeholder="-"
+      현재 번호표
+      <input aria-label="현재 번호표" data-testid="queue-no" inputMode="numeric" value={text} placeholder="-"
         onChange={(e) => setText(e.target.value.replace(/\D/g, '').slice(0, 3))}
         onBlur={(e) => save(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}

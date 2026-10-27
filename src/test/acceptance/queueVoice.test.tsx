@@ -19,7 +19,7 @@ function fakeSpeech(voices: { name: string; lang: string; localService: boolean 
 describe('대기석 큰 화면 호출 소리', () => {
   afterEach(() => { localStorage.clear() })
 
-  test('호출하면 "N번 어르신, 들어오세요"를 한국어로 두 번 부른다 (기본)', async () => {
+  test('호출하면 띵동 뒤에 번호만 한국어로 두 번 부른다 (기본)', async () => {
     const said = fakeSpeech()
     const server = makeServer()
     const display = makeDevice(server)
@@ -28,10 +28,10 @@ describe('대기석 큰 화면 호출 소리', () => {
     await user.click(await screen.findByTestId('display-start'))
     const staff = makeDevice(server, { name: '김다희' })
     await act(async () => { await staff.engine.callNext() })
-    await waitFor(() => expect(said.map((s) => s.text)).toEqual(['1번 어르신, 들어오세요', '1번 어르신, 들어오세요']), { timeout: 8000 })
+    await waitFor(() => expect(said.map((s) => s.text)).toEqual(['일번', '일번']), { timeout: 8000 })
     expect(said[0].lang).toBe('ko-KR')
     await act(async () => { await staff.engine.callNext() })
-    await waitFor(() => expect(said.slice(2).map((s) => s.text)).toEqual(['2번 어르신, 들어오세요', '2번 어르신, 들어오세요']), { timeout: 8000 })
+    await waitFor(() => expect(said.slice(2).map((s) => s.text)).toEqual(['이번', '이번']), { timeout: 8000 })
   })
 
   test("'띵동만'으로 바꾸면 번호를 말하지 않고, 설정은 이 노트북에 남는다", async () => {
@@ -81,4 +81,10 @@ describe('대기석 큰 화면 호출 소리', () => {
     await new Promise((r) => setTimeout(r, 300))
     expect(said).toEqual([])
   })
+})
+
+test('번호는 한자어 수로 읽는다 (십이번, 백십사번)', async () => {
+  const { announceText } = await import('../../lib/announcer')
+  expect([1, 10, 12, 20, 99, 100, 114, 160, 999].map(announceText))
+    .toEqual(['일번', '십번', '십이번', '이십번', '구십구번', '백번', '백십사번', '백육십번', '구백구십구번'])
 })
