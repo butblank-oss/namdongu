@@ -8,7 +8,7 @@ export const DEFAULT_GAMES = [
 ]
 
 /** 응답 테이블 컬럼과 연결되는 예약 key. 어드민에서 key 변경·삭제 불가 */
-export const RESERVED_KEYS = ['consent', 'real_name', 'result', 'c_checklist', 'preorder_4', 'p4_privacy', 'p4_sms'] as const
+export const RESERVED_KEYS = ['consent', 'real_name', 'result', 'c_checklist', 'preorder_4', 'p4_privacy', 'p4_sms', 'app_update'] as const
 export const FIRST_GAME_KEY = 'c_checklist'
 export const FIRST_GAME_OPTION = '첫 게임 실행'
 
@@ -53,6 +53,40 @@ export const P4_CONSENT_QUESTIONS: Question[] = [
   },
 ]
 export const etcKey = (key: string) => `${key}__etc`
+
+/**
+ * 앱 업데이트 안내 (2026-10-27). 전 회원 대상, 설문 마무리에서 현장 직원이 업데이트를 돕는다.
+ * 명단의 앱 버전(participants.app_version)이 최신보다 낮으면 설문 화면에 크게 표시한다. 인쇄 용지에는 넣지 않는다.
+ */
+export const LATEST_APP_VERSION = '4.1.1'
+export const APP_UPDATE_KEY = 'app_update'
+export const APP_UPDATE_DONE = '현장에서 업데이트 완료'
+export const APP_UPDATE_QUESTIONS: Question[] = [
+  {
+    key: APP_UPDATE_KEY, type: 'single', label: `앱 업데이트 (최신 ${LATEST_APP_VERSION})`, required: true,
+    help: '휴대폰에서 Play 스토어(아이폰은 App Store) → 맬리브레인 → 업데이트',
+    options: ['이미 최신', APP_UPDATE_DONE, '업데이트 못함'],
+  },
+  {
+    key: 'app_update_fail', type: 'single', label: '업데이트 못한 이유', required: true,
+    options: ['저장 공간 부족', '스토어 로그인 모름', '시간이 부족함', '원하지 않으심', ETC],
+    showIf: { key: APP_UPDATE_KEY, in: ['업데이트 못함'] },
+  },
+]
+/** 앱 화면에만 있고 인쇄 용지에는 없는 문항 */
+export const APP_ONLY_KEYS = APP_UPDATE_QUESTIONS.map((q) => q.key)
+
+/** '4.0.9' < '4.1.1' 같은 버전 비교. 읽을 수 없으면 null */
+export function compareVersion(a: string | null | undefined, b: string): number | null {
+  const pa = (a ?? '').trim().split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  if (!a || pa.some((x) => !Number.isInteger(x))) return null
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (d) return Math.sign(d)
+  }
+  return 0
+}
 
 const LIKES = ['게임이 재미있음', '기억력·집중력에 도움', '매일 할 거리가 생김', '운동 영상', '마음 챙김(명상)', '랭킹·트로피', '보건소와 연결된 느낌', ETC]
 
@@ -165,6 +199,7 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
         key: 'real_name', type: 'text', label: '실명 (선택 · 리워드 배송 확인용)',
         showIf: { key: 'reward', in: ['현장 지급', '추후 배송'] },
       },
+      ...APP_UPDATE_QUESTIONS,
       {
         key: 'result', type: 'single', label: '응대 결과', required: true,
         options: Object.keys(RESULT_STATUS),
@@ -175,4 +210,4 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
 }
 
 /** 개인정보 미동의일 때도 남기는 문항 */
-export const KEYS_WITHOUT_CONSENT = ['consent', 'result', 'memo']
+export const KEYS_WITHOUT_CONSENT = ['consent', 'result', 'memo', ...APP_ONLY_KEYS]

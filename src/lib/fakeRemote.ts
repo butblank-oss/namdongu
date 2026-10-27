@@ -219,6 +219,8 @@ export function makeFakeParticipants(n: number, seed = 7): Participant[] {
       cohort: '3',
       track,
       snapshot_date: '2026-09-14',
+      app_version: pick(['4.1.1', '4.1.1', '4.0.9', '4.0.7', '3.4.0']),
+      app_os: pick(['android', 'android', 'android', 'iOS']),
     })
   }
   return out
