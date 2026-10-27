@@ -73,3 +73,12 @@ test('게임 문항은 게임 카드와 같은 번호가 붙는다', async () =>
   expect(games).toHaveTextContent('16바이러스 퇴치')
   expect(games).not.toHaveTextContent('타일 뒤집기')
 })
+
+test("리워드는 새 보기로, '대상 아님 사유'는 직원 기입란에 인쇄된다", async () => {
+  await setup()
+  const a = (await screen.findAllByTestId('paper'))[0]
+  const staffBox = within(a).getAllByTestId('paper-question').filter((el) => el.textContent?.includes('대상 아님 사유'))
+  expect(staffBox).toHaveLength(1)
+  expect(a).toHaveTextContent('수량 부족 · 보건소 방문 지급')
+  expect(a).not.toHaveTextContent('추후 배송')
+})

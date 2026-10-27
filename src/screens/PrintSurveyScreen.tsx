@@ -147,8 +147,11 @@ interface Block { key: string; node: ReactNode }
  */
 function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payload: SurveyPayload; staffKeys: Set<string>; staffNames: string[] }) {
   const all = printQuestions(payload, track)
-  const elder = all.filter((q) => !staffKeys.has(q.key) && q.type !== 'staff')
-  const staff = all.filter((q) => staffKeys.has(q.key) || q.type === 'staff')
+  // 직원 문항에 딸린 조건부 글 칸(예: 리워드 '대상 아님' 사유)도 직원 기입란으로. 4기 동의처럼 고르는 문항은 어르신이 직접
+  const isStaff = (q: Question) => staffKeys.has(q.key) || q.type === 'staff'
+    || ((q.type === 'text' || q.type === 'textarea') && q.showIf != null && staffKeys.has(q.showIf.key))
+  const elder = all.filter((q) => !isStaff(q))
+  const staff = all.filter(isStaff)
   const accent = ACCENT[track]
 
   const blocks: Block[] = [

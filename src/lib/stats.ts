@@ -1,4 +1,4 @@
-import { FIRST_GAME_KEY, FIRST_GAME_OPTION } from './defaultSchema'
+import { FIRST_GAME_KEY, FIRST_GAME_OPTION, REWARD_ONSITE, REWARD_VISIT } from './defaultSchema'
 import type { Participant, Question, ResponseRow, Track } from './types'
 
 export interface Kpis {
@@ -36,7 +36,8 @@ export function kpis(responses: ResponseRow[], participants: Participant[]): Kpi
     if (asArray(r.answers[FIRST_GAME_KEY]).includes(FIRST_GAME_OPTION)) k.firstGame++
     if (r.answers.preorder_4 === '신청') k.preorder4++
     const rw = r.answers.reward
-    if (rw === '현장 지급' || rw === '추후 배송') k.rewardGiven++
+    // '추후 배송'은 2026-10-27 이전 보기 이름
+    if (rw === REWARD_ONSITE || rw === REWARD_VISIT || rw === '추후 배송') k.rewardGiven++
   }
   return k
 }
