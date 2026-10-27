@@ -1,5 +1,5 @@
 /*
- * 대기석 큰 화면의 호출 소리: "띵동!" + "N번 어르신, 들어오세요" (브라우저 음성 합성, 한국어).
+ * 대기석 큰 화면의 호출 소리: "띵동!" + "십이번" (번호만, 브라우저 음성 합성, 한국어).
  * 브라우저는 사용자가 화면을 한 번 누른 뒤에만 소리를 낸다 → 큰 화면의 '화면을 한 번 눌러 주세요'에서 unlock() 을 부른다.
  * (사파리는 누르는 그 순간에 한 번 말해야 이후 음성이 나온다 → unlock 에서 짧게 안내 문장을 말한다)
  * 호출이 겹치면 순서대로 하나씩 부른다.
@@ -12,7 +12,16 @@ export const ANNOUNCE_LABEL: Record<AnnounceMode, string> = {
   chime: '띵동만',
 }
 
-export const announceText = (n: number) => `${n}번 어르신, 들어오세요`
+/** 1~999 를 한자어 수로 읽기: 12 → 십이, 114 → 백십사 (음성이 '열두 번'으로 읽지 않게) */
+export function koreanNumber(n: number): string {
+  const d = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구']
+  if (n <= 0 || !Number.isInteger(n) || n > 999) return String(n)
+  const h = Math.floor(n / 100), t = Math.floor((n % 100) / 10), o = n % 10
+  return (h ? (h === 1 ? '' : d[h]) + '백' : '') + (t ? (t === 1 ? '' : d[t]) + '십' : '') + d[o]
+}
+
+/** 부르는 말: 띵동 뒤에 번호만 ("십이번") */
+export const announceText = (n: number) => `${koreanNumber(n)}번`
 
 /** 화면에 보여 줄 음성 상태 */
 export type VoiceStatus =
@@ -130,7 +139,7 @@ export class Announcer {
     })
   }
 
-  /** 번호 호출: 띵동 → "N번 어르신, 들어오세요" 를 mode 만큼 */
+  /** 번호 호출: 띵동 → "십이번" 을 mode 만큼 */
   announce(n: number, mode: AnnounceMode): Promise<void> {
     const times = mode === 'voice2' ? 2 : 1
     this.chain = this.chain.then(async () => {

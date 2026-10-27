@@ -29,7 +29,8 @@ function loadStaffKeys(): string[] {
 /** 대상 용지에 들어갈 문항 (동의 → 대상별 → 마무리) */
 export function printQuestions(payload: SurveyPayload, track: Track): Question[] {
   return [...payload.sections.intake, ...payload.sections[track], ...payload.sections.closing]
-    .filter((q) => q.type !== 'divider' && !APP_ONLY_KEYS.includes(q.key))
+    // showIf 의 보기가 비어 있으면 숨긴 문항 (예: 실명)
+    .filter((q) => q.type !== 'divider' && !APP_ONLY_KEYS.includes(q.key) && !(q.showIf && q.showIf.in.length === 0))
 }
 
 function conditionNote(q: Question, all: Question[]): string | null {
@@ -154,6 +155,13 @@ function mergeExclusiveNotes(list: Question[]): Question[] {
   return out
 }
 
+/** 직원 기입란에서 한 줄을 다 쓰는 문항: 긴 글, 또는 보기가 많거나 길어 반 칸에 안 들어가는 문항 */
+function staffWide(q: Question): boolean {
+  if (q.type === 'textarea') return true
+  const opts = q.options ?? []
+  return opts.length > 3 || q.label.length + opts.join('').length > 28
+}
+
 /** A4 한 쪽에서 위아래 여백(12mm)을 뺀 본문 높이 */
 const PAGE_BODY_MM = 297 - 24
 
@@ -164,9 +172,10 @@ interface Block { key: string; node: ReactNode }
  */
 function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payload: SurveyPayload; staffKeys: Set<string>; staffNames: string[] }) {
   const all = printQuestions(payload, track)
-  // 직원 문항에 딸린 조건부 글 칸(예: 리워드 '대상 아님' 사유)도 직원 기입란으로. 4기 동의처럼 고르는 문항은 어르신이 직접
+  // 직원 문항에 딸린 조건부 문항(예: 리워드 일부 수령 품목, 지급 못한 사유)도 직원 기입란으로.
+  // 고지문이 붙은 동의 문항(4기 동의 등)은 어르신이 직접 읽고 고르셔야 하므로 제외
   const isStaff = (q: Question) => staffKeys.has(q.key) || q.type === 'staff'
-    || ((q.type === 'text' || q.type === 'textarea') && q.showIf != null && staffKeys.has(q.showIf.key))
+    || (q.showIf != null && staffKeys.has(q.showIf.key) && !q.notice)
   const elder = all.filter((q) => !isStaff(q))
   const staff = mergeExclusiveNotes(all.filter(isStaff))
   const accent = ACCENT[track]
@@ -205,9 +214,9 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
             <span className="font-medium text-black/70">입력자 ____________</span>
             <span className="ml-auto flex items-center gap-[1.5mm] font-medium text-black/70"><Box size="4.5mm" /> 앱 입력 완료</span>
           </p>
-          <div className="grid grid-cols-2 gap-x-[6mm]">
+          <div className="grid grid-cols-[3fr_2fr] gap-x-[6mm]">
             {staff.map((q, i) => (
-              <div key={q.key} style={q.type === 'textarea' || (q.options?.length ?? 0) > 2 ? { gridColumn: 'span 2' } : undefined}>
+              <div key={q.key} style={staffWide(q) ? { gridColumn: 'span 2' } : undefined}>
                 <PaperQuestion q={q} no={i + 1} all={all} staff staffNames={staffNames} />
               </div>
             ))}

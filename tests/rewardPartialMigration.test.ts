@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs'
+const ITEMS = readFileSync('supabase/migrations/20261027040000_reward_items.sql', 'utf8')
 const FAMILY = readFileSync('supabase/migrations/20261027030000_family_fields.sql', 'utf8')
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAYLOAD } from '../src/lib/defaultSchema'
@@ -24,12 +25,11 @@ describe('리워드 일부 지급 + 가족 연락처 마이그레이션', () => 
     const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
     expect(c.map((q) => q.key)).toEqual(['preorder_4', 'contact_pref', 'family_consent', 'family_contact', 'reward', 'reward_partial', 'reward_reason', 'real_name', 'result'])
     const def = Object.fromEntries(DEFAULT_PAYLOAD.sections.closing.map((q) => [q.key, q]))
-    for (const k of ['family_consent', 'reward_partial']) {
+    for (const k of ['family_consent']) {
       const got = c.find((q) => q.key === k)
       expect(got).toEqual(JSON.parse(JSON.stringify(def[k])))
     }
     expect(c.find((q) => q.key === 'reward').options).toEqual(def.reward.options)
-    expect(c.find((q) => q.key === 'real_name').showIf).toEqual(def.real_name.showIf)
     const fn = await db.query(`select count(*)::int as n from pg_proc where proname = '_schema_insert_after'`)
     expect(fn.rows).toEqual([{ n: 0 }])
   }, 120000)
@@ -64,5 +64,29 @@ describe('리워드 일부 지급 + 가족 연락처 마이그레이션', () => 
     await db.exec(FAMILY)
     const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
     expect(c.map((q) => q.key)).toEqual(['family_consent', 'family_contact', 'family_name', 'family_relation', 'family_phone', 'result'])
+  }, 120000)
+
+  it('리워드 정리: 일부 지급은 여러 개 고르기, 지급 못한 사유, 실명 숨김 → 앱 기본 설문과 같다 (재실행 안전)', async () => {
+    const db = await bootDb()
+    const closing = [
+      { key: 'reward', type: 'single', label: '리워드 처리', options: ['현장 지급', '일부 지급 (재고 부족)', '수량 부족 · 보건소 방문 지급', '대상 아님'] },
+      { key: 'reward_partial', type: 'text', label: '드린 것 / 못 드린 것', showIf: { key: 'reward', in: ['일부 지급 (재고 부족)'] } },
+      { key: 'reward_reason', type: 'text', label: '대상 아님 사유', showIf: { key: 'reward', in: ['대상 아님'] } },
+      { key: 'real_name', type: 'text', label: '실명 (선택 · 리워드 배송 확인용)', showIf: { key: 'reward', in: ['현장 지급'] } },
+      { key: 'result', type: 'single', label: 'r', options: ['a'] },
+    ]
+    await asService(db, `insert into survey_schema (id, payload) values (1, $1::jsonb)`,
+      [JSON.stringify({ sections: { intake: [], A: [], B: [], C: [], closing }, guides: {} })])
+    await asService(db, `insert into responses (manual_info, track, answers) values ('{"name":"t"}','A','{"real_name":"간경자","reward_partial":"칼마디"}')`)
+    for (let i = 0; i < 2; i++) await db.exec(ITEMS)
+    const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
+    expect(c.map((q) => q.key)).toEqual(['reward', 'reward_partial', 'reward_reason', 'real_name', 'result'])
+    const def = Object.fromEntries(DEFAULT_PAYLOAD.sections.closing.map((q) => [q.key, q]))
+    for (const k of ['reward_partial', 'reward_reason', 'real_name']) {
+      const { help: _h, ...got } = c.find((q) => q.key === k)
+      const { help: _d, ...want } = JSON.parse(JSON.stringify(def[k]))
+      expect(got).toEqual(want)
+    }
+    expect(c.find((q) => q.key === 'reward_partial').help).toBe(def.reward_partial.help)
   }, 120000)
 })

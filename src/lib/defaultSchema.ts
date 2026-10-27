@@ -30,6 +30,10 @@ export const REWARD_NONE = '대상 아님'
 /** 보기 목록 끝에 붙이는 '기타'. 고르면 옆에 직접 입력칸이 열리고 answers[`${key}__etc`] 에 저장된다 */
 export const ETC = '기타'
 
+/** 일부 수령 때 고르는 리워드 종류 */
+export const REWARD_ITEMS = ['칼마디', '콘드로이친', ETC]
+
+
 /**
  * 4기 사전신청 동의 (2026-10-02 운영 결정: 4기 명단은 원메딕스가 직접 사용 → 제3자 제공 아님).
  * '신청'을 고른 분에게만 보인다. 4기 등록 명단은 p4_privacy = '동의'인 분만, 문자는 p4_sms = '동의'인 분에게만.
@@ -249,17 +253,19 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
         options: [REWARD_ONSITE, REWARD_PARTIAL, REWARD_VISIT, REWARD_NONE],
       },
       {
-        key: 'reward_partial', type: 'text', label: '드린 것 / 못 드린 것',
-        help: '예) 칼마디 현장 지급 / 콘드로이친 재고 부족으로 미지급',
+        key: 'reward_partial', type: 'multi', label: '받으신 리워드 (일부 수령)', required: true,
+        help: '받으신 것만 골라 주세요. 리워드 종류가 더 있으면 관리자가 설문지 편집에서 보기를 추가합니다.',
+        options: REWARD_ITEMS,
         showIf: { key: 'reward', in: [REWARD_PARTIAL] },
       },
       {
-        key: 'reward_reason', type: 'text', label: '대상 아님 사유',
+        key: 'reward_reason', type: 'text', label: '지급 못한 사유',
         showIf: { key: 'reward', in: [REWARD_NONE] },
       },
       {
-        key: 'real_name', type: 'text', label: '실명 (선택 · 리워드 배송 확인용)',
-        showIf: { key: 'reward', in: [REWARD_ONSITE, REWARD_PARTIAL, REWARD_VISIT] },
+        // 2026-10-27: 쓰지 않음 (명단에 실명이 있고 설문 시작 때 본인 확인). 응답 컬럼과 이어진 시스템 문항이라 지우지 않고 숨긴다
+        key: 'real_name', type: 'text', label: '실명 (사용 안 함)',
+        showIf: { key: 'reward', in: [] },
       },
       ...APP_UPDATE_QUESTIONS,
       {
