@@ -208,10 +208,15 @@ export function QueueSettingsScreen() {
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    const n = Number(next), m = Number(max)
-    if (!Number.isInteger(n) || !Number.isInteger(m) || n < 1 || m < 1 || m > 999 || n > m + 1) {
+    // 0 을 넣어도 '처음부터'(1번부터)로 받는다 (예전 칸 '마지막으로 부른 번호'에 0을 넣던 습관)
+    const n = Math.max(1, Number(next)), m = Number(max)
+    if (next.trim() === '' || !Number.isInteger(n) || !Number.isInteger(m) || m < 1 || m > 999 || n > m + 1) {
       setMsg('다음에 부를 번호는 1 이상, 끝 번호 이하로 적어 주세요.'); return
     }
+    await apply(n, m)
+  }
+
+  async function apply(n: number, m: number) {
     const cur = q?.last_called ?? 0
     if (n - 1 < cur && !window.confirm(`다음 호출을 ${n}번부터 다시 합니다. ${n}번 이후로 이미 부른 기록은 지워져요. 바꿀까요?`)) return
     try {
@@ -259,13 +264,15 @@ export function QueueSettingsScreen() {
               <div className="flex gap-2">
                 <Button type="submit" variant="primary" disabled={!engine.isAdmin}>저장</Button>
                 {dirty && <Button onClick={() => { setDirty(false); setMsg(null) }}>되돌리기</Button>}
+                <Button variant="dangerWeak" className="ml-auto" disabled={!engine.isAdmin}
+                  onClick={() => void apply(1, Number(max) || q.max_number)}>처음부터 다시 (1번부터)</Button>
               </div>
+              {msg && <p role="alert" data-testid="queue-settings-msg" className="rounded-xl bg-grey-100 px-4 py-3 text-[15px] font-semibold text-grey-800">{msg}</p>}
               {!engine.isAdmin && <p className="text-[14px] text-grey-500">관리자만 바꿀 수 있어요.</p>}
             </form>
           </Card>
         </div>
       )}
-      {msg && <p role="alert" className="mt-4 rounded-2xl bg-grey-100 p-4 font-semibold text-grey-800">{msg}</p>}
     </Screen>
   )
 }
