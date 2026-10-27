@@ -4,6 +4,7 @@ import { useEngine } from '../app/context'
 import { Badge, Button, Card, PageTitle, Screen, inputCls } from '../components/ui'
 import { RemoteError } from '../lib/remote'
 import type { Engine } from '../lib/engine'
+import { Announcer, ANNOUNCE_LABEL, type AnnounceMode } from '../lib/announcer'
 
 /*
  * 현장 대기번호.
@@ -86,37 +87,32 @@ export function QueueNoField({ responseId, value }: { responseId: string; value:
 }
 
 // ── 대기석 큰 화면 ─────────────────────────────────
-function chime() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const ctx = new Ctx()
-    ;[[880, 0], [660, 0.45]].forEach(([f, t]) => {
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.frequency.value = f
-      g.gain.setValueAtTime(0.0001, ctx.currentTime + t)
-      g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + t + 0.03)
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.9)
-      o.connect(g).connect(ctx.destination)
-      o.start(ctx.currentTime + t)
-      o.stop(ctx.currentTime + t + 1)
-    })
-    setTimeout(() => void ctx.close(), 2000)
-  } catch { /* 소리가 안 나도 화면은 바뀐다 */ }
+const MODE_KEY = 'namdongu.announceMode'
+function loadMode(): AnnounceMode {
+  try { const v = localStorage.getItem(MODE_KEY); if (v && v in ANNOUNCE_LABEL) return v as AnnounceMode } catch { /* 기본값 */ }
+  return 'voice2'
 }
 
 export function QueueDisplayScreen() {
   const engine = useEngine()
   const q = engine.queue
   const [started, setStarted] = useState(false)
+  const [mode, setMode] = useState<AnnounceMode>(loadMode)
+  const announcer = useRef<Announcer | null>(null)
+  announcer.current ??= new Announcer()
   const latest = q?.calls[0] ?? null
   const callKey = latest ? `${latest.number}@${latest.called_at}` : ''
   const prevKey = useRef(callKey)
 
   useEffect(() => {
-    if (callKey && callKey !== prevKey.current && started) chime()
+    if (callKey && callKey !== prevKey.current && started && latest) void announcer.current!.announce(latest.number, mode)
     prevKey.current = callKey
   }, [callKey, started])
+
+  const changeMode = (m: AnnounceMode) => {
+    setMode(m)
+    try { localStorage.setItem(MODE_KEY, m) } catch { /* 이번 화면에서만 */ }
+  }
 
   // 실시간 연결이 끊겨도 15초마다 다시 읽는다
   useEffect(() => {
@@ -126,7 +122,8 @@ export function QueueDisplayScreen() {
 
   const start = () => {
     setStarted(true)
-    chime()
+    announcer.current!.unlock()
+    void announcer.current!.chime()
     void document.documentElement.requestFullscreen?.().catch(() => {})
   }
 
@@ -138,7 +135,16 @@ export function QueueDisplayScreen() {
       <header className="flex items-center gap-4 px-[4vw] pt-[3vh]">
         <span aria-hidden className="grid h-[5vh] w-[5vh] place-items-center rounded-xl bg-blue-500 text-[2.5vh] font-extrabold text-white">M</span>
         <span className="text-[3.6vh] font-bold">맬리브레인 설문 대기 안내</span>
-        <Link to="/" className="no-print ml-auto rounded-xl px-3 py-2 text-[15px] font-semibold text-grey-400 hover:bg-grey-100">앱으로</Link>
+        <label className="no-print ml-auto flex items-center gap-2 text-[14px] font-semibold text-grey-400">
+          호출 소리
+          <select aria-label="호출 소리" value={mode} onChange={(e) => changeMode(e.target.value as AnnounceMode)}
+            className="rounded-lg bg-grey-100 px-2 py-1.5 text-[14px] text-grey-600">
+            {(Object.keys(ANNOUNCE_LABEL) as AnnounceMode[]).map((m) => <option key={m} value={m}>{ANNOUNCE_LABEL[m]}</option>)}
+          </select>
+        </label>
+        <button type="button" className="no-print rounded-lg px-2 py-1.5 text-[14px] font-semibold text-grey-400 hover:bg-grey-100"
+          onClick={() => { announcer.current!.unlock(); void announcer.current!.announce(latest?.number ?? 1, mode) }}>소리 시험</button>
+        <Link to="/" className="no-print rounded-xl px-3 py-2 text-[15px] font-semibold text-grey-400 hover:bg-grey-100">앱으로</Link>
       </header>
 
       {!q ? (
