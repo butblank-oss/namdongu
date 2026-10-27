@@ -216,9 +216,17 @@ export class Engine {
   }
 
   // ── 대기번호 ────────────────────────────────────
+  /** 대기번호 조회 순번. 노트북 여러 대가 번갈아 누르면 조회가 겹치는데, 늦게 도착한 옛 응답이 최신 번호를 덮어쓰지 않게 한다 */
+  private queueSeq = 0
+  private queueApplied = 0
+
   async pullQueue() {
+    const seq = ++this.queueSeq
     await this.guarded(async () => {
-      this.queue = await this.remote.fetchQueue()
+      const q = await this.remote.fetchQueue()
+      if (seq < this.queueApplied) return
+      this.queueApplied = seq
+      this.queue = q
       this.emit()
     })
   }
