@@ -137,6 +137,23 @@ function NameAndPhone() {
   )
 }
 
+/**
+ * 직원 기입란에서 같은 문항의 서로 다른 보기에 딸린 글 칸(예: 리워드 '일부 지급' 내용, '대상 아님' 사유)은
+ * 한 번에 하나만 쓰이므로 한 줄로 합친다 (용지 쪽수를 늘리지 않게).
+ */
+function mergeExclusiveNotes(list: Question[]): Question[] {
+  const single = (q: Question) => (q.type === 'text' && q.showIf?.in.length === 1 ? q.showIf.key : null)
+  const out: Question[] = []
+  for (const q of list) {
+    const parent = single(q)
+    const prev = out[out.length - 1]
+    if (parent && prev && single(prev) === parent) {
+      out[out.length - 1] = { ...prev, key: `${prev.key}+${q.key}`, label: `${prev.label} · ${q.label}` }
+    } else out.push(q)
+  }
+  return out
+}
+
 /** A4 한 쪽에서 위아래 여백(12mm)을 뺀 본문 높이 */
 const PAGE_BODY_MM = 297 - 24
 
@@ -151,7 +168,7 @@ function Paper({ track, payload, staffKeys, staffNames }: { track: Track; payloa
   const isStaff = (q: Question) => staffKeys.has(q.key) || q.type === 'staff'
     || ((q.type === 'text' || q.type === 'textarea') && q.showIf != null && staffKeys.has(q.showIf.key))
   const elder = all.filter((q) => !isStaff(q))
-  const staff = all.filter(isStaff)
+  const staff = mergeExclusiveNotes(all.filter(isStaff))
   const accent = ACCENT[track]
 
   const blocks: Block[] = [
