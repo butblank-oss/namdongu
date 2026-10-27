@@ -70,7 +70,7 @@ describe('대기번호', () => {
     const user = userEvent.setup()
     expect(await screen.findByTestId('queue-calls')).toHaveTextContent('5번')
     const next = screen.getByLabelText('다음에 부를 번호')
-    expect(next).toHaveValue('6')
+    await waitFor(() => expect(next).toHaveValue('6'))
     await user.clear(next)
     await user.type(next, '1')
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)

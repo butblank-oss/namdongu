@@ -197,8 +197,8 @@ export function QueueDisplayScreen() {
 export function QueueSettingsScreen() {
   const engine = useEngine()
   const q = engine.queue
-  const [next, setNext] = useState('')
-  const [max, setMax] = useState('')
+  const [next, setNext] = useState(() => (q ? String(q.last_called + 1) : ''))
+  const [max, setMax] = useState(() => (q ? String(q.max_number) : ''))
   // 입력을 시작하면 다른 노트북의 호출로 칸이 바뀌지 않게 한다 (저장하거나 되돌리면 다시 따라간다)
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
