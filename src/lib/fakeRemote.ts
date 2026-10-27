@@ -105,7 +105,7 @@ export class FakeRemote implements Remote {
       const keys = new Set(allQuestionKeys(payload))
       for (const r of s.responses.values()) {
         if (r.deleted_at) continue
-        const missing = Object.keys(r.answers).find((k) => !keys.has(k))
+        const missing = Object.keys(r.answers).map((k) => k.replace(/__etc$/, '')).find((k) => !keys.has(k))
         if (missing) throw new RemoteError('KEY_IN_USE', missing)
       }
       s.schema = { ...s.schema, version: s.schema.version + 1, payload: structuredClone(payload), updated_by: opts.updatedBy, updated_at: s.now() }

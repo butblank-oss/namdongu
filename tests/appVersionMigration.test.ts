@@ -29,3 +29,18 @@ describe('앱 업데이트 문항 마이그레이션', () => {
     expect(await keys(db)).toEqual(['result'])
   }, 120000)
 })
+
+describe("설문지 저장 검사: '기타' 직접 입력값", () => {
+  it("'<key>__etc' 응답이 있어도 그 문항이 남아 있으면 저장된다. 문항을 지우면 막힌다", async () => {
+    const db = await bootDb()
+    const sch = (keys: string[]) => JSON.stringify({ sections: { intake: keys.map((key) => ({ key, type: 'multi', label: key, options: ['기타'] })), A: [], B: [], C: [], closing: [{ key: 'result', type: 'single', label: 'r', options: ['a'] }] }, guides: {} })
+    await asService(db, `insert into survey_schema (id, payload) values (1, $1::jsonb)`, [sch(['b_like', 'x'])])
+    await asService(db, `insert into responses (manual_info, track, answers) values ('{"name":"t"}','B','{"b_like":["기타"],"b_like__etc":"산책"}')`)
+    await db.exec(SQL)
+    const v = await asService(db, `select payload::text like '%app_update%' as ok from survey_schema where id=1`)
+    expect(v.rows).toEqual([{ ok: true }])
+    let err: unknown
+    try { await asService(db, `update survey_schema set payload = $1::jsonb where id=1`, [sch(['x'])]) } catch (e) { err = e }
+    expect(String((err as { hint?: string })?.hint)).toBe('KEY_IN_USE')
+  }, 120000)
+})
