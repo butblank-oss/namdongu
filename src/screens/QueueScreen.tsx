@@ -26,6 +26,13 @@ async function callNext(engine: Engine) {
 export function QueueControl() {
   const engine = useEngine()
   const [busy, setBusy] = useState(false)
+  // 실시간 알림을 놓쳐도 버튼의 번호가 오래 어긋나지 않게 10초마다, 그리고 창으로 돌아올 때 다시 읽는다
+  useEffect(() => {
+    const pull = () => void engine.pullQueue()
+    const t = setInterval(pull, 10_000)
+    window.addEventListener('focus', pull)
+    return () => { clearInterval(t); window.removeEventListener('focus', pull) }
+  }, [engine])
   const q = engine.queue
   if (!q) return null
   const next = q.last_called + 1
@@ -35,7 +42,11 @@ export function QueueControl() {
     <div className="flex items-center gap-1.5" data-testid="queue-control">
       {engine.myCall != null && (
         <button type="button" data-testid="my-call" title="한 번 더 부르기 (큰 화면에 다시 떠요)"
-          onClick={() => void engine.recall(engine.myCall!).catch((e) => window.alert(queueMessage(e)))}
+          onClick={() => {
+            const n = engine.myCall!
+            if (!window.confirm(`${n}번을 한 번 더 부를까요? 큰 화면에 ${n}번이 다시 뜹니다.`)) return
+            void engine.recall(n).catch((e) => window.alert(queueMessage(e)))
+          }}
           className="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-xl bg-blue-50 px-3 text-[15px] font-bold text-blue-600 hover:bg-blue-100">
           {`내 호출 ${engine.myCall}번`} <span aria-hidden className="text-blue-400">↻</span>
         </button>
@@ -137,7 +148,9 @@ export function QueueDisplayScreen() {
           <section className="flex flex-col items-center justify-center rounded-[4vh] bg-blue-50" aria-live="assertive">
             {latest ? (
               <>
-                <p className="text-[5vh] font-bold text-blue-700">들어오실 번호</p>
+                {latest.number !== q.last_called
+                  ? <p className="text-[5vh] font-bold text-orange-600" data-testid="display-recall">다시 부르는 번호</p>
+                  : <p className="text-[5vh] font-bold text-blue-700">들어오실 번호</p>}
                 <p key={callKey} data-testid="display-now" className="tabular animate-[queue-pop_0.6s_ease-out] font-extrabold leading-none text-blue-600" style={{ fontSize: '34vh' }}>
                   {latest.number}
                 </p>
@@ -184,21 +197,28 @@ export function QueueDisplayScreen() {
 export function QueueSettingsScreen() {
   const engine = useEngine()
   const q = engine.queue
-  const [last, setLast] = useState('')
-  const [max, setMax] = useState('')
+  const [next, setNext] = useState(() => (q ? String(q.last_called + 1) : ''))
+  const [max, setMax] = useState(() => (q ? String(q.max_number) : ''))
+  // 입력을 시작하면 다른 노트북의 호출로 칸이 바뀌지 않게 한다 (저장하거나 되돌리면 다시 따라간다)
+  const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   useEffect(() => {
-    if (q) { setLast(String(q.last_called)); setMax(String(q.max_number)) }
-  }, [q?.last_called, q?.max_number])
+    if (q && !dirty) { setNext(String(q.last_called + 1)); setMax(String(q.max_number)) }
+  }, [q?.last_called, q?.max_number, dirty])
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    const l = Number(last), m = Number(max)
-    if (!Number.isInteger(l) || !Number.isInteger(m) || l < 0 || m < 1 || m > 999 || l > m) {
-      setMsg('마지막 번호는 0 이상, 끝 번호 이하로 적어 주세요.'); return
+    const n = Number(next), m = Number(max)
+    if (!Number.isInteger(n) || !Number.isInteger(m) || n < 1 || m < 1 || m > 999 || n > m + 1) {
+      setMsg('다음에 부를 번호는 1 이상, 끝 번호 이하로 적어 주세요.'); return
     }
-    if (l < (q?.last_called ?? 0) && !window.confirm(`${l + 1}번부터 다시 부르게 됩니다. 그보다 큰 번호의 호출 기록은 지워져요. 바꿀까요?`)) return
-    try { await engine.setQueue(l, m); setMsg('저장했습니다.') } catch (err) { setMsg(`저장하지 못했습니다: ${(err as Error).message}`) }
+    const cur = q?.last_called ?? 0
+    if (n - 1 < cur && !window.confirm(`다음 호출을 ${n}번부터 다시 합니다. ${n}번 이후로 이미 부른 기록은 지워져요. 바꿀까요?`)) return
+    try {
+      await engine.setQueue(n - 1, m)
+      setDirty(false)
+      setMsg(`저장했습니다. 다음 호출은 ${n}번입니다.`)
+    } catch (err) { setMsg(`저장하지 못했습니다: ${(err as Error).message}`) }
   }
 
   return (
@@ -226,15 +246,20 @@ export function QueueSettingsScreen() {
           </Card>
           <Card className="p-6">
             <h2 className="text-[17px] font-bold text-grey-900">번호 바꾸기 <Badge tone="red">관리자</Badge></h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-grey-600">행사 시작 전에 마지막 번호를 <b>0</b>으로 두면 1번부터 부릅니다. 번호표를 더 만들었으면 끝 번호를 늘리세요.</p>
+            <p className="mt-2 text-[15px] leading-relaxed text-grey-600">행사 시작 전에 다음에 부를 번호를 <b>1</b>로 두면 1번부터 부릅니다. 번호표를 더 만들었으면 끝 번호를 늘리세요.</p>
             <form onSubmit={(e) => void save(e)} className="mt-4 space-y-3">
-              <label className="block text-[15px] font-semibold text-grey-700">마지막으로 부른 번호
-                <input className={`${inputCls} mt-1`} inputMode="numeric" value={last} onChange={(e) => setLast(e.target.value.replace(/\D/g, ''))} disabled={!engine.isAdmin} />
+              <label className="block text-[15px] font-semibold text-grey-700">다음에 부를 번호
+                <input className={`${inputCls} mt-1`} inputMode="numeric" value={next} disabled={!engine.isAdmin}
+                  onChange={(e) => { setDirty(true); setNext(e.target.value.replace(/\D/g, '')) }} />
               </label>
               <label className="block text-[15px] font-semibold text-grey-700">끝 번호 (번호표 장수)
-                <input className={`${inputCls} mt-1`} inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))} disabled={!engine.isAdmin} />
+                <input className={`${inputCls} mt-1`} inputMode="numeric" value={max} disabled={!engine.isAdmin}
+                  onChange={(e) => { setDirty(true); setMax(e.target.value.replace(/\D/g, '')) }} />
               </label>
-              <Button type="submit" variant="primary" disabled={!engine.isAdmin}>저장</Button>
+              <div className="flex gap-2">
+                <Button type="submit" variant="primary" disabled={!engine.isAdmin}>저장</Button>
+                {dirty && <Button onClick={() => { setDirty(false); setMsg(null) }}>되돌리기</Button>}
+              </div>
               {!engine.isAdmin && <p className="text-[14px] text-grey-500">관리자만 바꿀 수 있어요.</p>}
             </form>
           </Card>
