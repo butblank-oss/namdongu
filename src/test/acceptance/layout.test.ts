@@ -11,11 +11,11 @@ test('설문은 한 화면: 동의 → 대상별 문항 → 마무리', () => {
   }
 })
 
-test('개인정보 미동의면 설문 문항 없이 응대 결과·메모만 남는다', () => {
+test('개인정보 미동의면 설문 문항 없이 앱 업데이트·응대 결과·메모만 남는다', () => {
   const sections = buildSections(DEFAULT_PAYLOAD, 'B', { consent: '미동의' })
   const keys = sections.flatMap((s) => s.questions).map((q) => q.key)
-  expect(keys).toEqual(['consent', 'result', 'memo'])
-  expect(missingRequired(sections.flatMap((s) => s.questions), { consent: '미동의' })).toEqual(['result'])
+  expect(keys).toEqual(['consent', 'app_update', 'app_update_fail', 'result', 'memo'])
+  expect(missingRequired(sections.flatMap((s) => s.questions), { consent: '미동의' })).toEqual(['app_update', 'result'])
 })
 
 test('의견을 묻는 문항은 대부분 여러 개 선택이고 기타를 받는다', () => {

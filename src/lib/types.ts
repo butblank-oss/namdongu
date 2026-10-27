@@ -28,6 +28,9 @@ export interface Participant {
   track: Track
   snapshot_date: string
   active?: boolean
+  /** 명단 기준 앱 버전·기기 (2026-10-27 추출) */
+  app_version?: string | null
+  app_os?: string | null
 }
 
 export const MANUAL_REASONS = ['재등록', '등록 지연', '이전 기수', '가족 대리', '모름'] as const

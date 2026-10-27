@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useNavigate } from 'react-router-dom'
 import { useEngine } from '../app/context'
 import { Button, Card, Chip, PageTitle } from '../components/ui'
-import { ETC } from '../lib/defaultSchema'
+import { APP_ONLY_KEYS, ETC } from '../lib/defaultSchema'
 import { TRACK_DESC, TRACK_LABEL, type Question, type SurveyPayload, type Track } from '../lib/types'
 
 /*
@@ -28,7 +28,8 @@ function loadStaffKeys(): string[] {
 
 /** 대상 용지에 들어갈 문항 (동의 → 대상별 → 마무리) */
 export function printQuestions(payload: SurveyPayload, track: Track): Question[] {
-  return [...payload.sections.intake, ...payload.sections[track], ...payload.sections.closing].filter((q) => q.type !== 'divider')
+  return [...payload.sections.intake, ...payload.sections[track], ...payload.sections.closing]
+    .filter((q) => q.type !== 'divider' && !APP_ONLY_KEYS.includes(q.key))
 }
 
 function conditionNote(q: Question, all: Question[]): string | null {

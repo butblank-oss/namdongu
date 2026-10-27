@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useDB, useEngine } from '../app/context'
+import { AppUpdateCallout, AppVersionBadge } from '../components/AppUpdateCallout'
 import { QuestionField } from '../components/QuestionField'
 import { QueueNoField } from './QueueScreen'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
-import { etcKey, RESULT_STATUS } from '../lib/defaultSchema'
+import { APP_UPDATE_KEY, etcKey, RESULT_STATUS } from '../lib/defaultSchema'
 import { nowIso } from '../lib/engine'
 import { buildSections, isVisible, missingRequired } from '../lib/survey'
-import { TRACK_DESC, TRACK_LABEL, type AnswerValue, type Answers, type LocalResponse } from '../lib/types'
+import { TRACK_DESC, TRACK_LABEL, type AnswerValue, type Answers, type LocalResponse, type Participant } from '../lib/types'
 
 const PERSIST_DELAY = 250
 
@@ -135,7 +136,8 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
   const who = initial.manual_info
     ? `${initial.manual_info.name} (${initial.manual_info.phone_last4}) · 명단 외`
     : null
-  const participantLabel = useParticipantLabel(initial.participant_id) ?? who
+  const participant = useParticipant(initial.participant_id)
+  const participantLabel = (participant ? `${participant.full_name || participant.name_masked} (${participant.phone_last4 ?? '----'})` : null) ?? who
   const pct = required.length ? Math.round((doneCount / required.length) * 100) : 100
 
   return (
@@ -147,6 +149,7 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
           <span className="text-[21px] font-bold text-grey-900">{participantLabel}</span>
           <Badge tone={TRACK_TONE[initial.track]}>{TRACK_LABEL[initial.track]}</Badge>
           {initial.verified === 'skipped' && <Badge tone="red">본인 확인 못함</Badge>}
+          <AppVersionBadge p={participant} answer={answers[APP_UPDATE_KEY]} />
           {isEdit && <Badge tone="green">완료된 응답 수정 중</Badge>}
           <QueueNoField responseId={initial.id} value={queueNo} />
           <span className="tabular ml-auto text-[15px] font-semibold text-grey-600" data-testid="progress-required">
@@ -182,8 +185,11 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
             {sec.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
               ? <div key={q.key} className="h-2" />
               : (
-                <QuestionField key={q.key} q={q} value={answers[q.key]} etcValue={answers[etcKey(q.key)] as string | undefined}
-                  invalid={errors.includes(q.key)} staffNames={staffNames} onChange={onChange} />
+                <div key={q.key} className={q.key === APP_UPDATE_KEY ? 'space-y-3' : undefined}>
+                  {q.key === APP_UPDATE_KEY && participant !== undefined && <AppUpdateCallout p={participant} answer={answers[q.key]} />}
+                  <QuestionField q={q} value={answers[q.key]} etcValue={answers[etcKey(q.key)] as string | undefined}
+                    invalid={errors.includes(q.key)} staffNames={staffNames} onChange={onChange} />
+                </div>
               ))}
           </section>
         ))}
@@ -206,14 +212,15 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
   )
 }
 
-function useParticipantLabel(pid: string | null): string | null {
+/** 명단 정보. 읽는 중이면 undefined, 명단 외 응답이면 null */
+function useParticipant(pid: string | null): Participant | null | undefined {
   const db = useDB()
-  const [label, setLabel] = useState<string | null>(null)
+  const [p, setP] = useState<Participant | null | undefined>(pid ? undefined : null)
   useEffect(() => {
     if (!pid) return
-    void db.participants.get(pid).then((p) => { if (p) setLabel(`${p.full_name || p.name_masked} (${p.phone_last4 ?? '----'})`) })
+    void db.participants.get(pid).then((x) => setP(x ?? null))
   }, [db, pid])
-  return label
+  return p
 }
 
 /** 관문을 통과하지 않은 응답이면 본인 확인 화면으로 돌려보낸다 */
