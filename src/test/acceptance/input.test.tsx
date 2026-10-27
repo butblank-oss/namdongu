@@ -13,7 +13,7 @@ describe('입력 안정성', () => {
     await openSurveyFor(user)
 
     const reward = screen.getByTestId('question-reward')
-    await user.click(within(reward).getByRole('radio', { name: '추후 배송' }))
+    await user.click(within(reward).getByRole('radio', { name: '수량 부족 · 보건소 방문 지급' }))
     const input = within(screen.getByTestId('question-real_name')).getByRole('textbox')
     await user.type(input, '간경자')
     expect(input).toHaveValue('간경자')
@@ -53,4 +53,16 @@ describe('입력 안정성', () => {
     expect(intoView).not.toHaveBeenCalled()
     vi.restoreAllMocks()
   })
+})
+
+test("리워드 '대상 아님'을 고르면 사유를 적을 수 있다", async () => {
+  const { engine, db } = makeDevice(makeServer())
+  await renderApp(engine)
+  const user = userEvent.setup()
+  await openSurveyFor(user)
+  expect(screen.queryByTestId('question-reward_reason')).not.toBeInTheDocument()
+  expect(within(screen.getByTestId('question-reward')).queryByRole('radio', { name: '추후 배송' })).not.toBeInTheDocument()
+  await user.click(within(screen.getByTestId('question-reward')).getByRole('radio', { name: '대상 아님' }))
+  await user.type(within(await screen.findByTestId('question-reward_reason')).getByRole('textbox'), '이미 받으심')
+  await waitFor(async () => expect((await db.responses.toArray())[0].answers.reward_reason).toBe('이미 받으심'))
 })

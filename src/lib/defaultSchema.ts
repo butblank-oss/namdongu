@@ -20,6 +20,11 @@ export const RESULT_STATUS: Record<string, 'done' | 'refused' | 'revisit'> = {
   '재방문 예정': 'revisit',
 }
 
+/** 리워드: 현장 수량이 모자라면 보건소에 방문하셔서 받으신다 (2026-10-27, 예전 '추후 배송') */
+export const REWARD_ONSITE = '현장 지급'
+export const REWARD_VISIT = '수량 부족 · 보건소 방문 지급'
+export const REWARD_NONE = '대상 아님'
+
 /** 보기 목록 끝에 붙이는 '기타'. 고르면 옆에 직접 입력칸이 열리고 answers[`${key}__etc`] 에 저장된다 */
 export const ETC = '기타'
 
@@ -193,11 +198,15 @@ export const DEFAULT_PAYLOAD: SurveyPayload = {
       {
         key: 'reward', type: 'single', label: '리워드 처리', required: true,
         help: '지급 조건: 행사 운영 기준에 따릅니다. (관리자가 설문지 편집에서 문구 수정)',
-        options: ['현장 지급', '추후 배송', '대상 아님'],
+        options: [REWARD_ONSITE, REWARD_VISIT, REWARD_NONE],
+      },
+      {
+        key: 'reward_reason', type: 'text', label: '대상 아님 사유',
+        showIf: { key: 'reward', in: [REWARD_NONE] },
       },
       {
         key: 'real_name', type: 'text', label: '실명 (선택 · 리워드 배송 확인용)',
-        showIf: { key: 'reward', in: ['현장 지급', '추후 배송'] },
+        showIf: { key: 'reward', in: [REWARD_ONSITE, REWARD_VISIT] },
       },
       ...APP_UPDATE_QUESTIONS,
       {
