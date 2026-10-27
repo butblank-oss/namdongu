@@ -29,3 +29,13 @@ test('도와준 담당자 문항이 없다', () => {
   const all = Object.values(DEFAULT_PAYLOAD.sections).flat()
   expect(all.some((q) => q.key === 'helpers' || q.type === 'staff')).toBe(false)
 })
+
+test('휴대폰 번호 칸: 숫자만 넣어도 하이픈 형식으로', async () => {
+  const { formatPhone, phoneComplete } = await import('../../lib/defaultSchema')
+  expect(formatPhone('01012345678')).toBe('010-1234-5678')
+  expect(formatPhone('010 1234 5678 9')).toBe('010-1234-5678')
+  expect(formatPhone('0111234567')).toBe('011-123-4567')
+  expect(formatPhone('0101')).toBe('010-1')
+  expect(phoneComplete('010-1234-5678')).toBe(true)
+  expect(phoneComplete('010-1234-567')).toBe(false)
+})

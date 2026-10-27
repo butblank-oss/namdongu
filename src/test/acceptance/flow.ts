@@ -23,7 +23,7 @@ export async function completeSurvey(user: UserEvent, query: string, rowIndex = 
   await screen.findByTestId('survey-step')
   await answerRequired(user)
   await user.click(screen.getByRole('button', { name: '응대 완료' }))
-  await screen.findByRole('button', { name: '다음 분 찾기' })
+  await screen.findByRole('button', { name: /다음 분 찾기$/ })
 }
 
 export function goOffline(remote: { online: boolean }) {

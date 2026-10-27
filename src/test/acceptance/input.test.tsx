@@ -79,8 +79,8 @@ test("리워드 '일부 지급 (재고 부족)'이면 드린 것/못 드린 것�
   expect((await db.responses.toArray())[0].real_name).toBeNull()
 })
 
-test("'가족을 통해'를 고르면 가족 본인 동의(고지문)가 나오고, 동의해야 연락처 칸이 열린다", async () => {
-  const { engine } = makeDevice(makeServer())
+test("'가족을 통해'를 고르면 가족 본인 동의(고지문)가 나오고, 동의해야 성함·관계·번호 칸이 열린다", async () => {
+  const { engine, db } = makeDevice(makeServer())
   await renderApp(engine)
   const user = userEvent.setup()
   await openSurveyFor(user)
@@ -89,9 +89,17 @@ test("'가족을 통해'를 고르면 가족 본인 동의(고지문)가 나오�
   const consent = await screen.findByTestId('question-family_consent')
   expect(consent).toHaveTextContent('어르신이 대신 동의하실 수 없습니다')
   expect(consent).toHaveTextContent('항목: 가족분 성함, 어르신과의 관계, 휴대폰 번호')
-  expect(screen.queryByTestId('question-family_contact')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('question-family_phone')).not.toBeInTheDocument()
   await user.click(within(consent).getByRole('radio', { name: '미동의' }))
-  expect(screen.queryByTestId('question-family_contact')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('question-family_phone')).not.toBeInTheDocument()
   await user.click(within(consent).getByRole('radio', { name: '동의' }))
-  expect(await screen.findByTestId('question-family_contact')).toBeInTheDocument()
+  await user.type(within(await screen.findByTestId('question-family_name')).getByRole('textbox'), '김영희')
+  await user.click(within(screen.getByTestId('question-family_relation')).getByRole('radio', { name: '딸' }))
+  const phone = within(screen.getByTestId('question-family_phone')).getByRole('textbox')
+  await user.type(phone, '01012345678')
+  expect(phone).toHaveValue('010-1234-5678')
+  await waitFor(async () => {
+    const a = (await db.responses.toArray())[0].answers
+    expect([a.family_name, a.family_relation, a.family_phone]).toEqual(['김영희', '딸', '010-1234-5678'])
+  })
 })

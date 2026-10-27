@@ -61,6 +61,16 @@ export const P4_CONSENT_QUESTIONS: Question[] = [
 ]
 export const etcKey = (key: string) => `${key}__etc`
 
+/** 휴대폰 번호 입력: 숫자만 남기고 010-1234-5678 (10자리면 011-123-4567) 로 맞춘다 */
+export function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`
+  const mid = d.length === 10 ? 6 : 7
+  return `${d.slice(0, 3)}-${d.slice(3, mid)}-${d.slice(mid)}`
+}
+export const phoneComplete = (v: string) => /^01\d-\d{3,4}-\d{4}$/.test(v)
+
 /**
  * 가족 연락처 (2026-10-27). '앞으로 안내받고 싶은 방법'에서 '가족을 통해'를 고른 분만, 가족 본인이 동의했을 때만 받는다.
  * 가족 번호는 그 자리에 없는 다른 사람의 개인정보라 어르신이 대신 동의할 수 없다.
@@ -80,8 +90,17 @@ export const FAMILY_CONTACT_QUESTIONS: Question[] = [
     ].join('\n'),
   },
   {
-    key: 'family_contact', type: 'text', label: '가족 성함 · 관계 · 휴대폰 번호',
-    help: '예) 김영희 · 딸 · 010-1234-5678',
+    key: 'family_name', type: 'text', label: '가족 성함',
+    showIf: { key: 'family_consent', in: ['동의'] },
+  },
+  {
+    key: 'family_relation', type: 'single', label: '어르신과의 관계',
+    options: ['배우자', '아들', '딸', '며느리', '사위', '손자녀', '형제자매', ETC],
+    showIf: { key: 'family_consent', in: ['동의'] },
+  },
+  {
+    key: 'family_phone', type: 'text', label: '가족 휴대폰 번호', format: 'phone',
+    help: '숫자만 누르면 010-1234-5678 형식으로 저장돼요',
     showIf: { key: 'family_consent', in: ['동의'] },
   },
 ]
@@ -107,7 +126,7 @@ export const APP_UPDATE_QUESTIONS: Question[] = [
 ]
 /** 앱 화면에만 있고 인쇄 용지에는 없는 문항.
  *  가족 연락처는 가족 본인 동의를 직원이 확인해야 해서 앱에서만 받는다 (용지는 4쪽 유지) */
-export const APP_ONLY_KEYS = [...APP_UPDATE_QUESTIONS.map((q) => q.key), 'family_consent', 'family_contact']
+export const APP_ONLY_KEYS = [...APP_UPDATE_QUESTIONS.map((q) => q.key), ...FAMILY_CONTACT_QUESTIONS.map((q) => q.key)]
 
 /** '4.0.9' < '4.1.1' 같은 버전 비교. 읽을 수 없으면 null */
 export function compareVersion(a: string | null | undefined, b: string): number | null {
