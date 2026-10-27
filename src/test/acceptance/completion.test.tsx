@@ -17,7 +17,7 @@ describe('완료 처리', () => {
 
     await user.click(screen.getByRole('button', { name: '응대 완료' }))
     expect(screen.getByTestId('survey-step')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '다음 분 찾기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /다음 분 찾기$/ })).not.toBeInTheDocument()
     const consent = screen.getByTestId('question-consent')
     expect(consent).toHaveAttribute('data-invalid', 'true')
     expect(within(consent).getByText('필수 문항입니다')).toBeInTheDocument()
@@ -40,7 +40,7 @@ describe('완료 처리', () => {
     expect(rows[0].completed_at).toBeNull()
 
     await user.click(screen.getByRole('button', { name: '응대 완료' }))
-    expect(await screen.findByRole('button', { name: '다음 분 찾기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /다음 분 찾기$/ })).toBeInTheDocument()
     rows = await responses(engine)
     expect(rows[0].status).toBe('done')
     expect(rows[0].completed_at).toBeTruthy()
@@ -54,7 +54,7 @@ describe('완료 처리', () => {
     await openSurveyFor(user)
     await fillStepRequired(user)
     await user.click(screen.getByRole('button', { name: '응대 완료' }))
-    await screen.findByRole('button', { name: '다음 분 찾기' })
+    await screen.findByRole('button', { name: /다음 분 찾기$/ })
     await waitFor(() => expect(screen.getByTestId('progress-A')).toHaveTextContent('1/2'))
   })
 
@@ -70,7 +70,7 @@ describe('완료 처리', () => {
     expect(screen.getByTestId('question-result')).toBeInTheDocument()
     await fillStepRequired(user)
     await user.click(screen.getByRole('button', { name: '응대 완료' }))
-    expect(await screen.findByRole('button', { name: '다음 분 찾기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /다음 분 찾기$/ })).toBeInTheDocument()
     const rows = await responses(engine)
     expect(rows[0].status).not.toBe('in_progress')
     expect(rows[0].completed_at).toBeTruthy()

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs'
+const FAMILY = readFileSync('supabase/migrations/20261027030000_family_fields.sql', 'utf8')
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PAYLOAD } from '../src/lib/defaultSchema'
 import { asService, bootDb } from './db/harness'
@@ -23,7 +24,7 @@ describe('리워드 일부 지급 + 가족 연락처 마이그레이션', () => 
     const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
     expect(c.map((q) => q.key)).toEqual(['preorder_4', 'contact_pref', 'family_consent', 'family_contact', 'reward', 'reward_partial', 'reward_reason', 'real_name', 'result'])
     const def = Object.fromEntries(DEFAULT_PAYLOAD.sections.closing.map((q) => [q.key, q]))
-    for (const k of ['family_consent', 'family_contact', 'reward_partial']) {
+    for (const k of ['family_consent', 'reward_partial']) {
       const got = c.find((q) => q.key === k)
       expect(got).toEqual(JSON.parse(JSON.stringify(def[k])))
     }
@@ -31,5 +32,37 @@ describe('리워드 일부 지급 + 가족 연락처 마이그레이션', () => 
     expect(c.find((q) => q.key === 'real_name').showIf).toEqual(def.real_name.showIf)
     const fn = await db.query(`select count(*)::int as n from pg_proc where proname = '_schema_insert_after'`)
     expect(fn.rows).toEqual([{ n: 0 }])
+  }, 120000)
+
+  it('가족 연락처를 성함·관계·번호 세 칸으로 나눈다 (옛 칸은 응답이 없을 때만 지움, 재실행 안전)', async () => {
+    const db = await bootDb()
+    const closing = [
+      { key: 'contact_pref', type: 'multi', label: 'c', options: ['문자', '가족을 통해'] },
+      { key: 'family_consent', type: 'single', label: 'f', options: ['동의', '미동의'], showIf: { key: 'contact_pref', in: ['가족을 통해'] } },
+      { key: 'family_contact', type: 'text', label: '가족 성함 · 관계 · 휴대폰 번호', showIf: { key: 'family_consent', in: ['동의'] } },
+      { key: 'result', type: 'single', label: 'r', options: ['a'] },
+    ]
+    await asService(db, `insert into survey_schema (id, payload) values (1, $1::jsonb)`,
+      [JSON.stringify({ sections: { intake: [], A: [], B: [], C: [], closing }, guides: {} })])
+    for (let i = 0; i < 2; i++) await db.exec(FAMILY)
+    const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
+    expect(c.map((q) => q.key)).toEqual(['contact_pref', 'family_consent', 'family_name', 'family_relation', 'family_phone', 'result'])
+    const def = Object.fromEntries(DEFAULT_PAYLOAD.sections.closing.map((q) => [q.key, q]))
+    for (const k of ['family_name', 'family_relation', 'family_phone']) expect(c.find((q) => q.key === k)).toEqual(JSON.parse(JSON.stringify(def[k])))
+  }, 120000)
+
+  it('옛 칸에 이미 응답이 있으면 지우지 않고 새 칸을 뒤에 넣는다', async () => {
+    const db = await bootDb()
+    const closing = [
+      { key: 'family_consent', type: 'single', label: 'f', options: ['동의'] },
+      { key: 'family_contact', type: 'text', label: 'old' },
+      { key: 'result', type: 'single', label: 'r', options: ['a'] },
+    ]
+    await asService(db, `insert into survey_schema (id, payload) values (1, $1::jsonb)`,
+      [JSON.stringify({ sections: { intake: [], A: [], B: [], C: [], closing }, guides: {} })])
+    await asService(db, `insert into responses (manual_info, track, answers) values ('{"name":"t"}','A','{"family_contact":"김영희 딸"}')`)
+    await db.exec(FAMILY)
+    const c = ((await asService(db, `select payload->'sections'->'closing' as c from survey_schema where id=1`)).rows[0] as { c: any[] }).c
+    expect(c.map((q) => q.key)).toEqual(['family_consent', 'family_contact', 'family_name', 'family_relation', 'family_phone', 'result'])
   }, 120000)
 })

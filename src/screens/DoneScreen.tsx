@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useDB, useEngine } from '../app/context'
 import { NetworkStatus } from '../components/TopBar'
 import { Button, Screen } from '../components/ui'
+import { DoneQueueCard } from './QueueScreen'
 
 export function DoneScreen() {
   const { rid = '' } = useParams()
@@ -12,7 +13,9 @@ export function DoneScreen() {
   const engine = useEngine()
   const r = useLiveQuery(() => db.responses.get(engine.resolveId(rid)), [db, engine, rid])
   const btn = useRef<HTMLButtonElement>(null)
-  useEffect(() => { btn.current?.focus() }, [])
+  // 대기번호를 쓰면 '다음 분 호출'이 첫 버튼, 아니면 '다음 분 찾기'
+  const queueOn = engine.queue != null
+  useEffect(() => { if (!queueOn) btn.current?.focus() }, [queueOn])
 
   const next = () => {
     try { sessionStorage.removeItem('namdongu.lastSearch') } catch { /* 무시 */ }
@@ -31,7 +34,10 @@ export function DoneScreen() {
         <h1 className="mt-6 text-[28px] font-bold text-grey-900" data-testid="done-title">{r ? label[r.status] : '저장됨'}</h1>
         <p className="mt-2 text-[16px] leading-relaxed text-grey-500">이 기기에 먼저 저장되었고,<br />온라인이면 자동으로 서버에 올라갑니다.</p>
         <div className="mt-4"><NetworkStatus testId="net-status-done" /></div>
-        <Button ref={btn} size="xl" variant="primary" className="mt-10 w-full" onClick={next}>다음 분 찾기</Button>
+        <DoneQueueCard onFind={next} />
+        <Button ref={btn} size={queueOn ? 'lg' : 'xl'} variant={queueOn ? 'secondary' : 'primary'} className={`${queueOn ? 'mt-4' : 'mt-10'} w-full`} onClick={next}>
+          {queueOn ? '호출 없이 다음 분 찾기' : '다음 분 찾기'}
+        </Button>
         <Button variant="ghost" className="mt-3" onClick={() => navigate(`/r/${rid}`)}>방금 응답 다시 보기</Button>
       </div>
     </Screen>

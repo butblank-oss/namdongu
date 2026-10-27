@@ -139,6 +139,8 @@ export interface Question {
   notice?: string
   /** 게임 카드 인쇄에 쓰는 게임 목록 문항 */
   gameList?: boolean
+  /** 짧은 글 입력 형식. phone: 숫자만 받아 010-1234-5678 로 저장 */
+  format?: 'phone'
 }
 
 export type SectionId = 'intake' | 'A' | 'B' | 'C' | 'closing'

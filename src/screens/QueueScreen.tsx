@@ -4,7 +4,7 @@ import { useEngine } from '../app/context'
 import { Badge, Button, Card, PageTitle, Screen, inputCls } from '../components/ui'
 import { RemoteError } from '../lib/remote'
 import type { Engine } from '../lib/engine'
-import { Announcer, ANNOUNCE_LABEL, type AnnounceMode } from '../lib/announcer'
+import { Announcer, ANNOUNCE_LABEL, type AnnounceMode, type VoiceStatus } from '../lib/announcer'
 
 /*
  * 현장 대기번호.
@@ -93,6 +93,21 @@ function loadMode(): AnnounceMode {
   return 'voice2'
 }
 
+/** 이 노트북에서 번호를 말할 수 있는지 (현장에서 바로 알 수 있게) */
+function VoiceStatusLabel({ status }: { status: VoiceStatus }) {
+  const text = {
+    unknown: null,
+    ready: status.kind === 'ready' ? `음성: ${status.name}` : '',
+    none: '⚠ 이 노트북에 한국어 음성이 없어 띵동만 나요',
+    unsupported: '⚠ 이 브라우저는 음성을 지원하지 않아요 (크롬 권장)',
+    error: status.kind === 'error'
+      ? (status.message === 'not-allowed' ? '⚠ 화면을 한 번 더 눌러 주세요 (소리 허용)' : `⚠ 번호 음성을 낼 수 없어요 (${status.message}) · 띵동만 나요`)
+      : '',
+  }[status.kind]
+  if (!text) return null
+  return <span data-testid="voice-status" className={`no-print text-[13px] font-semibold ${status.kind === 'ready' ? 'text-grey-400' : 'text-red-500'}`}>{text}</span>
+}
+
 export function QueueDisplayScreen() {
   const engine = useEngine()
   const q = engine.queue
@@ -100,6 +115,8 @@ export function QueueDisplayScreen() {
   const [mode, setMode] = useState<AnnounceMode>(loadMode)
   const announcer = useRef<Announcer | null>(null)
   announcer.current ??= new Announcer()
+  const [voice, setVoice] = useState<VoiceStatus>({ kind: 'unknown' })
+  useEffect(() => { announcer.current!.onStatus = setVoice }, [])
   const latest = q?.calls[0] ?? null
   const callKey = latest ? `${latest.number}@${latest.called_at}` : ''
   const prevKey = useRef(callKey)
@@ -142,6 +159,7 @@ export function QueueDisplayScreen() {
             {(Object.keys(ANNOUNCE_LABEL) as AnnounceMode[]).map((m) => <option key={m} value={m}>{ANNOUNCE_LABEL[m]}</option>)}
           </select>
         </label>
+        <VoiceStatusLabel status={voice} />
         <button type="button" className="no-print rounded-lg px-2 py-1.5 text-[14px] font-semibold text-grey-400 hover:bg-grey-100"
           onClick={() => { announcer.current!.unlock(); void announcer.current!.announce(latest?.number ?? 1, mode) }}>소리 시험</button>
         <Link to="/" className="no-print rounded-xl px-3 py-2 text-[15px] font-semibold text-grey-400 hover:bg-grey-100">앱으로</Link>
@@ -280,5 +298,56 @@ export function QueueSettingsScreen() {
         </div>
       )}
     </Screen>
+  )
+}
+
+/**
+ * 응대 완료 화면: 앞 분 설문을 마치면 바로 다음 분을 부르도록 큰 버튼.
+ * 다음 번호는 실시간으로 바뀐다 (다른 직원이 먼저 부르면 그다음 번호).
+ */
+export function DoneQueueCard({ onFind }: { onFind: () => void }) {
+  const engine = useEngine()
+  const [busy, setBusy] = useState(false)
+  const [called, setCalled] = useState<number | null>(null)
+  const btn = useRef<HTMLButtonElement>(null)
+  useEffect(() => { btn.current?.focus() }, [called])
+  useEffect(() => {
+    void engine.pullQueue()
+    const t = setInterval(() => void engine.pullQueue(), 5_000)
+    return () => clearInterval(t)
+  }, [engine])
+  const q = engine.queue
+  if (!q) return null
+  const next = q.last_called + 1
+  const ended = q.last_called >= q.max_number
+
+  if (called != null) {
+    return (
+      <div data-testid="done-called" className="mt-10 w-full rounded-3xl bg-green-50 px-6 py-6 ring-2 ring-inset ring-green-500">
+        <p className="text-[17px] font-semibold text-green-700">큰 화면에 띄우고 불렀어요</p>
+        <p className="mt-1 text-[40px] font-extrabold leading-tight text-green-700"><span className="tabular">{called}</span>번 어르신</p>
+        <Button ref={btn} size="xl" variant="primary" className="mt-5 w-full" onClick={onFind}>{called}번 어르신 찾기 →</Button>
+        <Button variant="ghost" className="mt-2" onClick={() => {
+          if (window.confirm(`${called}번을 한 번 더 부를까요?`)) void engine.recall(called).catch((e) => window.alert(queueMessage(e)))
+        }}>안 오시면 다시 부르기</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div data-testid="done-queue" className="mt-10 w-full rounded-3xl bg-blue-50 px-6 py-6">
+      <p className="text-[17px] font-semibold text-blue-700">다음 차례</p>
+      <p className="mt-1 text-[40px] font-extrabold leading-tight text-blue-600" data-testid="done-next">
+        {ended ? '번호표를 모두 불렀어요' : <><span className="tabular">{next}</span>번 어르신</>}
+      </p>
+      <Button ref={btn} size="xl" variant="primary" className="mt-5 w-full" disabled={busy || ended} data-testid="done-call-next"
+        onClick={async () => {
+          setBusy(true)
+          try { setCalled(await engine.callNext()) } catch (e) { window.alert(queueMessage(e)) }
+          setBusy(false)
+        }}>
+        {busy ? '부르는 중…' : `다음 분 호출 (${next}번)`}
+      </Button>
+    </div>
   )
 }

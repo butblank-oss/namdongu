@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ETC, etcKey } from '../lib/defaultSchema'
+import { ETC, etcKey, formatPhone, phoneComplete } from '../lib/defaultSchema'
 import { inputCls } from './ui'
 import type { AnswerValue, Question } from '../lib/types'
 
@@ -72,6 +72,16 @@ export const QuestionField = memo(function QuestionField({ q, value, etcValue, i
       <textarea id={id} aria-labelledby={`${id}-label`} rows={3} value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(q.key, e.target.value)}
         className={`${inputCls} py-3`} />
+    )
+  } else if (q.format === 'phone') {
+    const v = typeof value === 'string' ? value : ''
+    control = (
+      <>
+        <input id={id} aria-labelledby={`${id}-label`} value={v} autoComplete="off" inputMode="tel" placeholder="010-0000-0000"
+          onChange={(e) => onChange(q.key, formatPhone(e.target.value))}
+          className={`${inputCls} tabular max-w-xs`} />
+        {v && !phoneComplete(v) && <p className="mt-2 text-[14px] font-semibold text-orange-600">번호가 덜 입력됐어요 (10~11자리)</p>}
+      </>
     )
   } else {
     control = (
