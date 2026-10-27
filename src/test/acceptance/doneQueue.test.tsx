@@ -23,7 +23,7 @@ describe('응대 완료 화면의 다음 분 호출', () => {
     expect(await screen.findByTestId('done-called')).toHaveTextContent('6번 어르신')
     expect(server.queue.last_called).toBe(6)
     expect(a.engine.myCall).toBe(6)
-    await user.click(screen.getByRole('button', { name: '6번 어르신 찾기 →' }))
+    await user.click(screen.getByRole('button', { name: '대기번호 6번 설문 진행하기' }))
     expect(await screen.findByLabelText('검색')).toBeInTheDocument()
   })
 })

@@ -326,7 +326,7 @@ export function DoneQueueCard({ onFind }: { onFind: () => void }) {
       <div data-testid="done-called" className="mt-10 w-full rounded-3xl bg-green-50 px-6 py-6 ring-2 ring-inset ring-green-500">
         <p className="text-[17px] font-semibold text-green-700">큰 화면에 띄우고 불렀어요</p>
         <p className="mt-1 text-[40px] font-extrabold leading-tight text-green-700"><span className="tabular">{called}</span>번 어르신</p>
-        <Button ref={btn} size="xl" variant="primary" className="mt-5 w-full" onClick={onFind}>{called}번 어르신 찾기 →</Button>
+        <Button ref={btn} size="xl" variant="primary" className="mt-5 w-full" onClick={onFind}>{`대기번호 ${called}번 설문 진행하기`}</Button>
         <Button variant="ghost" className="mt-2" onClick={() => {
           if (window.confirm(`${called}번을 한 번 더 부를까요?`)) void engine.recall(called).catch((e) => window.alert(queueMessage(e)))
         }}>안 오시면 다시 부르기</Button>
