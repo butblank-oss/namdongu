@@ -39,3 +39,19 @@ test('4기 필수 동의를 거부하면 4기는 미신청, 리워드는 대상 
   // 동의하면 아무것도 바꾸지 않는다
   expect(applyAnswerRules({ preorder_4: '신청', reward: '현장 지급' }, 'p4_privacy', '동의')).toEqual({ preorder_4: '신청', reward: '현장 지급', p4_privacy: '동의' })
 })
+
+test('4기 필수 동의를 거부한 뒤 다시 신청하면 동의를 새로 받고, 거부로 자동 들어간 리워드·사유도 지운다', async () => {
+  const { applyAnswerRules } = await import('../../lib/survey')
+  let a = applyAnswerRules({ preorder_4: '신청', reward: '현장 지급' }, 'p4_privacy', '미동의')
+  a = applyAnswerRules(a, 'preorder_4', '신청')
+  expect(a.preorder_4).toBe('신청')
+  expect(a.p4_privacy).toBeUndefined()
+  expect(a.p4_sms).toBeUndefined()
+  expect(a.reward).toBeUndefined()
+  expect(a.reward_reason).toBeUndefined()
+  // 직원이 직접 적은 사유가 있으면 리워드·사유는 그대로 둔다
+  const b = applyAnswerRules({ p4_privacy: '미동의', preorder_4: '미신청', reward: '대상 아님', reward_reason: '이미 받으심' }, 'preorder_4', '신청')
+  expect(b.p4_privacy).toBeUndefined()
+  expect([b.reward, b.reward_reason]).toEqual(['대상 아님', '이미 받으심'])
+  expect(applyAnswerRules({}, 'preorder_4', '신청')).toEqual({ preorder_4: '신청' })
+})
