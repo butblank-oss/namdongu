@@ -110,3 +110,18 @@ test("'가족을 통해'를 고르면 가족 본인 동의(고지문)가 나오�
     expect([a.family_name, a.family_relation, a.family_phone]).toEqual(['김영희', '딸', '010-1234-5678'])
   })
 })
+
+test('설문 화면: 4기 신청 후 필수 동의에서 미동의를 누르면 미신청 · 리워드 대상 아님으로 바뀌고 안내가 보인다', async () => {
+  const { engine, db } = makeDevice(makeServer())
+  await renderApp(engine)
+  const user = userEvent.setup()
+  await openSurveyFor(user)
+  await user.click(within(screen.getByTestId('question-preorder_4')).getByRole('radio', { name: '신청' }))
+  await user.click(within(await screen.findByTestId('question-p4_privacy')).getByRole('radio', { name: '미동의' }))
+  expect(await screen.findByTestId('p4-declined')).toHaveTextContent("4기 사전신청은 '미신청'")
+  expect(within(screen.getByTestId('question-preorder_4')).getByRole('radio', { name: '미신청' })).toHaveAttribute('aria-checked', 'true')
+  expect(screen.queryByTestId('question-p4_privacy')).not.toBeInTheDocument()
+  expect(within(screen.getByTestId('question-reward')).getByRole('radio', { name: '대상 아님' })).toHaveAttribute('aria-checked', 'true')
+  expect(within(screen.getByTestId('question-reward_reason')).getByRole('textbox')).toHaveValue('4기 개인정보 필수 동의 안 함')
+  await waitFor(async () => expect((await db.responses.toArray())[0].answers.preorder_4).toBe('미신청'))
+})

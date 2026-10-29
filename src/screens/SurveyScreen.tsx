@@ -8,7 +8,7 @@ import { QueueNoField } from './QueueScreen'
 import { Badge, Button, Screen, TRACK_TONE } from '../components/ui'
 import { APP_UPDATE_KEY, etcKey, RESULT_STATUS } from '../lib/defaultSchema'
 import { nowIso } from '../lib/engine'
-import { buildSections, isVisible, missingRequired } from '../lib/survey'
+import { applyAnswerRules, buildSections, isVisible, missingRequired, p4Declined } from '../lib/survey'
 import { TRACK_DESC, TRACK_LABEL, type AnswerValue, type Answers, type LocalResponse, type Participant } from '../lib/types'
 
 const PERSIST_DELAY = 250
@@ -80,7 +80,7 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
 
   const onChange = useCallback((key: string, value: AnswerValue) => {
     setAnswers((prev) => {
-      const next = { ...prev, [key]: value }
+      const next = applyAnswerRules(prev, key, value)
       answersRef.current = next
       return next
     })
@@ -185,7 +185,13 @@ function SurveyForm({ initial }: { initial: LocalResponse }) {
             {sec.questions.filter((q) => isVisible(q, answers)).map((q) => q.type === 'divider'
               ? <div key={q.key} className="h-2" />
               : (
-                <div key={q.key} className={q.key === APP_UPDATE_KEY ? 'space-y-3' : undefined}>
+                <div key={q.key} className={q.key === APP_UPDATE_KEY || q.key === 'preorder_4' ? 'space-y-3' : undefined}>
+                  {q.key === 'preorder_4' && p4Declined(answers) && (
+                    <p data-testid="p4-declined" role="status" className="rounded-2xl bg-orange-50 px-5 py-4 text-[16px] font-semibold leading-relaxed text-orange-700 ring-2 ring-inset ring-orange-400">
+                      4기 참여 필수 동의를 하지 않으셔서 <b>4기 사전신청은 '미신청'</b>, <b>리워드는 '대상 아님'</b>으로 처리했어요.
+                      다시 신청하시려면 '신청'을 누르고 필수 동의를 받아 주세요.
+                    </p>
+                  )}
                   {q.key === APP_UPDATE_KEY && participant !== undefined && <AppUpdateCallout p={participant} answer={answers[q.key]} />}
                   <QuestionField q={q} value={answers[q.key]} etcValue={answers[etcKey(q.key)] as string | undefined}
                     invalid={errors.includes(q.key)} staffNames={staffNames} onChange={onChange} />

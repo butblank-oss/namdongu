@@ -1,4 +1,4 @@
-import { KEYS_WITHOUT_CONSENT } from './defaultSchema'
+import { KEYS_WITHOUT_CONSENT, REWARD_NONE } from './defaultSchema'
 import { TRACK_LABEL, type Answers, type AnswerValue, type Question, type SurveyPayload, type Track } from './types'
 
 export interface Section {
@@ -55,4 +55,21 @@ export function gameListOptions(payload: SurveyPayload): string[] {
     if (q?.options?.length) return q.options
   }
   return []
+}
+
+/** 4기 필수 동의(p4_privacy)를 거부하면: 4기 사전신청은 '미신청'으로 끝나고 리워드도 드리지 않는다 (2026-10-29 현장팀 결정) */
+export const P4_DECLINED_REASON = '4기 개인정보 필수 동의 안 함'
+export const p4Declined = (a: Answers) => a.p4_privacy === '미동의' && a.preorder_4 === '미신청'
+
+/** 한 문항을 고쳤을 때 함께 바뀌어야 하는 답 */
+export function applyAnswerRules(prev: Answers, key: string, value: AnswerValue): Answers {
+  const next: Answers = { ...prev, [key]: value }
+  if (key === 'p4_privacy' && value === '미동의') {
+    next.preorder_4 = '미신청'
+    delete next.p4_sms
+    next.reward = REWARD_NONE
+    delete next.reward_partial
+    if (!(typeof next.reward_reason === 'string' && next.reward_reason.trim())) next.reward_reason = P4_DECLINED_REASON
+  }
+  return next
 }
