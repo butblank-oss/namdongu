@@ -71,5 +71,14 @@ export function applyAnswerRules(prev: Answers, key: string, value: AnswerValue)
     delete next.reward_partial
     if (!(typeof next.reward_reason === 'string' && next.reward_reason.trim())) next.reward_reason = P4_DECLINED_REASON
   }
+  // 거부 후 다시 '신청'하면 동의를 새로 받는다. 거부 때문에 자동으로 넣은 리워드·사유도 걷어낸다
+  if (key === 'preorder_4' && value === '신청' && prev.p4_privacy === '미동의') {
+    delete next.p4_privacy
+    delete next.p4_sms
+    if (next.reward === REWARD_NONE && next.reward_reason === P4_DECLINED_REASON) {
+      delete next.reward
+      delete next.reward_reason
+    }
+  }
   return next
 }
